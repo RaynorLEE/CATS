@@ -26,15 +26,16 @@ def run_gpt_chat(messages):
 def run_llm_chat(messages):
     client = OpenAI(
         api_key="EMPTY",
-        # base_url="http://localhost:8000/v1"
-        base_url="http://192.168.80.3:9413/v1"
+        base_url="http://localhost:8000/v1"
+        # base_url="http://192.168.80.3:9413/v1"
     )
     attempt = 0
     while attempt < 3:
         try:
             completion = client.chat.completions.create(
                 # model="Meta-Llama-3-8B-Instruct",
-                model="Qwen/Qwen1.5-32B-Chat",
+                # model="Qwen/Qwen1.5-32B-Chat",
+                model="Qwen2-7B-Instruct",
                 temperature=0,
                 top_p=0.01,
                 messages=messages,

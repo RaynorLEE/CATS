@@ -7,7 +7,15 @@
 # Please return 'Y' if the input triple is consistent, otherwise return 'N'. Do not say anything else except your determination.
 # """
 
-# 下面这个prompt在FB237上，所有batch的groundtruth保留率为0.93（越高越好），过滤样本剩余比例为0.20（越低越好）
+# 下面这个prompt在FB237上，所有batch的groundtruth保留率为0.93（越高越好），过滤样本剩余比例为0.
+# SELECTING_PROMPT = """Please determine whether the entities in the input triples are consistent in type with a set of known triples in the knowledge graph.
+# A set of known triples are:
+# {fewshot_triples}
+# The triple to be determined is:
+# {test_triple}
+# Please return 'Y' if the input triple is consistent, otherwise return 'N'. Do not say anything else except your determination.
+# """
+
 SELECTING_PROMPT = """Please determine whether both the head entity and tail entity in the input triple are consistent in entity type with a set of known triples in the knowledge graph.
 A set of known triples are:
 {fewshot_triples}

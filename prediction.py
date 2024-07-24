@@ -1,7 +1,7 @@
 import os
 import argparse
 from tqdm import tqdm
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
 from data_manager import DataManager
 from prompt_templates import SELECTING_PROMPT, REASONING_PROMPT, REASONING_LONGTAIL_PROMPT
@@ -18,16 +18,32 @@ def main():
     args = parser.parse_args()
 
     data_manager = DataManager(dataset=args.dataset, setting=args.setting, train_size=args.train_size)
-    test_batches = data_manager.get_test_batches()[:20]
+    test_batches = data_manager.get_test_batches()[:5]
     
-    # tokenizer = AutoTokenizer.from_pretrained("/data/FinAi_Mapping_Knowledge/LLMs/Meta-Llama-3-8B-Instruct")
-    # model = AutoModelForCausalLM.from_pretrained("/data/FinAi_Mapping_Knowledge/LLMs/Meta-Llama-3-8B-Instruct")
+    model_path = "/data/FinAi_Mapping_Knowledge/finllm/LLMs/Qwen1.5-14B-Chat"
+
+    model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype="auto",device_map="auto")
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+
+    generation_config = dict(
+        temperature=0,
+        top_k=0,
+        top_p=0,
+        do_sample=False,
+        max_new_tokens=1,
+    )
+
+    device = "cuda"
+    Y_id = tokenizer.encode("Y", add_special_tokens=False)[0]
+    N_id = tokenizer.encode("N", add_special_tokens=False)[0]
     
     select_result = []
     reason_result = []
+    score_result = []
     for idx, batch in enumerate(tqdm(test_batches, desc="Processing batches")):
-        response_record = []
+        response_in_batch = []
         reason_in_batch = []
+        score_in_batch = []
         for batch_idx, test_triple in enumerate(batch):
             test_head, test_relation, test_tail = test_triple
 
@@ -39,13 +55,31 @@ def main():
             fewshot_heads = '(' + ', '.join(f"'{data_manager.entity2text[head]}'" for head, _, _ in fewshot_triples) + ')'
             fewshot_tails = '(' + ', '.join(f"'{data_manager.entity2text[tail]}'" for _, _, tail in fewshot_triples) + ')'
             selecting_prompt = SELECTING_PROMPT.format(fewshot_triples=fewshot_triples_sentence, test_triple=test_triple_sentence, test_head=test_head_name, test_tail=test_tail_name, fewshot_heads=fewshot_heads, fewshot_tails=fewshot_tails)
+            messages = [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": selecting_prompt}
+            ]
             # print(selecting_prompt)
-            select_response = run_llm_chat([{"role": "user", "content": selecting_prompt}]).strip()
+            # select_response = run_llm_chat([{"role": "user", "content": selecting_prompt}]).strip()
             # print(select_response)
-            if select_response == 'Y':
-                response_record.append(1)
-            else:
-                response_record.append(0)
+            text = tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+            )
+            inputs = tokenizer(text, return_tensors="pt").to(device)
+
+            generated_output = model.generate(
+                input_ids=inputs.input_ids,
+                return_dict_in_generate=True,
+                output_scores=True,
+                **generation_config
+            )
+
+            scores = generated_output.scores[0]
+            Y_score = scores[0, Y_id].item()
+            N_score = scores[0, N_id].item()
+            score_in_batch.append(Y_score)
             
             # if select_response == 'Y':
             #     test_head_tail = f"{test_head}-{test_tail}"
@@ -75,25 +109,29 @@ def main():
                 
             #     if reasoning_response == 'Y':
             #         reason_in_batch.append(batch_idx + 1)
-        
+        select_result.append(response_in_batch)
         reason_result.append(reason_in_batch)
-        select_result.append(response_record)
-    
-    num_batches = len(select_result)
-    count_first_ones = sum(1 for record in select_result if record[0] == 1)
-    proportion_first_ones = count_first_ones / num_batches
-    ones_per_batch = [sum(record) for record in select_result]
-    total_ones = sum(ones_per_batch)
-    total_elements = sum(len(record) for record in select_result)
-    proportion_ones = total_ones / total_elements
+        score_result.append(score_in_batch)
+        
+    print(score_result)
+    for row in score_result:
+        top_indices = sorted(range(len(row)), key=lambda i: row[i], reverse=True)[:10]
+        top_scores_with_indices = [(idx + 1, row[idx]) for idx in top_indices]
+        print(top_scores_with_indices)
+    # num_batches = len(select_result)
+    # count_first_ones = sum(1 for record in select_result if record[0] == 1)
+    # proportion_first_ones = count_first_ones / num_batches
+    # ones_per_batch = [sum(record) for record in select_result]
+    # total_ones = sum(ones_per_batch)
+    # total_elements = sum(len(record) for record in select_result)
+    # proportion_ones = total_ones / total_elements
+    # print(f"Proportion of batches where the first element is 1: {proportion_first_ones:.2f}")
+    # print(f"Number of ones in each batch: {ones_per_batch}")
+    # print(f"Proportion of ones across all batches: {proportion_ones:.2f}")
 
-    print(f"Proportion of batches where the first element is 1: {proportion_first_ones:.2f}")
-    print(f"Number of ones in each batch: {ones_per_batch}")
-    print(f"Proportion of ones across all batches: {proportion_ones:.2f}")
-
-    print("Reasoning results:", reason_result)
-    for result in select_result:
-        print(result)
+    # print("Reasoning results:", reason_result)
+    # for result in select_result:
+    #     print(result)
 
 if __name__ == "__main__":
     main()
