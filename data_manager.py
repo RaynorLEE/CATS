@@ -10,7 +10,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 class DataManager:
     def __init__(self, dataset="FB15k-237-subset", setting="inductive", train_size="full"):
         self.dataset = dataset
-        self.dataset_path = f"data/{dataset}" + ("-inductive" if setting=="inductive" else "")
+        self.dataset_path = f"datasets/{dataset}" + ("-inductive" if setting=="inductive" else "")
         self.train_size = train_size
         self.test_batch_size = 50
         
@@ -29,7 +29,7 @@ class DataManager:
         self.close_path_dict = self._load_close_path_dict(f"paths/close_path.json")
         
         self.embedding_model = SentenceTransformer(
-            model_name_or_path='/data/FinAi_Mapping_Knowledge/yangcehao/bge-small-en-v1.5',
+            model_name_or_path='BAAI/bge-small-en-v1.5',
             device="cuda"
         )
 
@@ -135,7 +135,7 @@ class DataManager:
             head, relation, tail = triple
             head_property = relation.split('/')[2]
             tail_property = relation.split('/')[-1]
-            return f"'{self.entity2text[tail]}' is the {tail_property} of {head_property} '{self.entity2text[head]}'"
+            return f"('{self.entity2text[tail]}' is the {tail_property} of {head_property} '{self.entity2text[head]}')"
         elif self.dataset == "WN18RR-subset":
             return ""
         elif self.dataset == "NELL-995-subset":
