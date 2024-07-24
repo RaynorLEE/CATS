@@ -20,7 +20,7 @@ def main():
     data_manager = DataManager(dataset=args.dataset, setting=args.setting, train_size=args.train_size)
     test_batches = data_manager.get_test_batches()[:5]
     
-    model_path = "/data/FinAi_Mapping_Knowledge/finllm/LLMs/Qwen1.5-14B-Chat"
+    model_path = "/data/FinAi_Mapping_Knowledge/finllm/LLMs/Qwen2-7B-Instruct"
 
     model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype="auto",device_map="auto")
     tokenizer = AutoTokenizer.from_pretrained(model_path)
