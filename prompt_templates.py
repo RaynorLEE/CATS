@@ -1,11 +1,11 @@
 # 下面这个prompt在FB237上，所有batch的groundtruth保留率为0.92（越高越好），过滤样本剩余比例为0.18（越低越好）
-# SELECTING_PROMPT = """Determine whether the input triple is consistent within the same ontological framework, given a set of known triples of the knowledge graph.
-# A set of known triples are:
-# {fewshot_triples}
-# The triple to be determined is:
-# {test_triple}
-# Please return 'Y' if the input triple is consistent, otherwise return 'N'. Do not say anything else except your determination.
-# """
+SELECTING_PROMPT = """Please determine whether the input triple is consistent within the same ontological framework with a set of known triples in the knowledge graph, which means the entities are consistent in entity type.
+A set of known triples are:
+{fewshot_triples}
+The triple to be determined is:
+{test_triple}
+Please return 'Y' if the input triple is consistent within the same ontological framework, otherwise return 'N'. Do not say anything else except your determination.
+"""
 
 # 下面这个prompt在FB237上，所有batch的groundtruth保留率为0.93（越高越好），过滤样本剩余比例为0.
 # SELECTING_PROMPT = """Please determine whether the entities in the input triples are consistent in type with a set of known triples in the knowledge graph.
@@ -15,15 +15,6 @@
 # {test_triple}
 # Please return 'Y' if the input triple is consistent, otherwise return 'N'. Do not say anything else except your determination.
 # """
-
-SELECTING_PROMPT = """Please determine whether both the head entity and tail entity in the input triple are consistent in entity type with a set of known triples in the knowledge graph.
-A set of known triples are:
-{fewshot_triples}
-The input triple to be determined is:
-{test_triple}
-Does both {test_head} is consistent in type with {fewshot_heads} and {test_tail} is consistent in type with {fewshot_tails}?
-Please return 'Y' if both entities are consistent, otherwise return 'N'. Do not say anything else except your determination.
-"""
 
 REASONING_PROMPT = """Determine whether the relation in the input can be reliably inferred, given a set of reasoning paths between two entities of known triples of the knowledge graph.
 A set of reasoning paths are:

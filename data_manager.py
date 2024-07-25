@@ -5,7 +5,7 @@ import numpy as np
 from collections import defaultdict
 from sentence_transformers import SentenceTransformer
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 class DataManager:
     def __init__(self, dataset="FB15k-237-subset", setting="inductive", train_size="full"):
@@ -28,10 +28,10 @@ class DataManager:
         self.entity2relationtail_dict = self._load_entity2relationtail_dict(self.path_set)
         self.close_path_dict = self._load_close_path_dict(f"paths/close_path.json")
         
-        # self.embedding_model = SentenceTransformer(
-        #     model_name_or_path='BAAI/bge-small-en-v1.5',
-        #     device="cuda"
-        # )
+        self.embedding_model = SentenceTransformer(
+            model_name_or_path='BAAI/bge-small-en-v1.5',
+            device="cuda"
+        )
 
     def _load_text_file(self, filename):
         filepath = f"{self.dataset_path}/{filename}"
