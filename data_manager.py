@@ -12,7 +12,11 @@ class DataManager:
         self.dataset = dataset
         self.dataset_path = f"datasets/{dataset}" + ("-inductive" if setting=="inductive" else "")
         self.train_size = train_size
-        self.test_batch_size = 50
+        
+        self.test_batch_size = 50 # 测试集中每50个sample为一个batch，并计算MRR和Hits@1
+        self.max_triples = 5 # Ontology Reasoning阶段最多使用5个fewshot triples
+        self.max_paths = 6 # Path Reasoning阶段最多使用6个path，要么close path，要么open path
+        self.max_path_hops = 3 # 任意一个Path最多使用3跳path
         
         self.entity2text = self._load_text_file("entity2text.txt")
         self.relation2text = self._load_text_file("relation2text.txt")
@@ -26,6 +30,7 @@ class DataManager:
         
         self.relation2headtail_dict = self._load_relation2headtail_dict(self.path_set)
         self.entity2relationtail_dict = self._load_entity2relationtail_dict(self.path_set)
+        self.relation_degree_dict = self._load_relation_degree_dict(self.path_set)
         self.close_path_dict = self._load_close_path_dict(f"paths/close_path.json")
         
         self.embedding_model = SentenceTransformer(
@@ -56,6 +61,12 @@ class DataManager:
             entity2relationtail_dict[tail].append((relation, head, -1))
         return entity2relationtail_dict
 
+    def _load_relation_degree_dict(self, triple_set):
+        relation_degree_dict = defaultdict(int)
+        for _, relation, _ in triple_set:
+            relation_degree_dict[relation] += 1
+        return relation_degree_dict
+
     def _load_close_path_dict(self, filename):
         filepath = f"{self.dataset_path}/{filename}" 
         if os.path.exists(filepath):
@@ -70,7 +81,7 @@ class DataManager:
         head_tail_pairs = self.relation2headtail_dict[relation]
         return [[head, relation, tail] for head, tail in head_tail_pairs]
     
-    def diverse_fewshot_triple_finder(self, test_triple, count):
+    def diverse_fewshot_triple_finder(self, test_triple):
         test_head, relation, test_tail = test_triple
         head_tail_pairs = self.relation2headtail_dict[relation]
         used_heads = {test_head, test_tail}
@@ -84,12 +95,12 @@ class DataManager:
                 used_heads.add(head)
                 used_tails.add(tail)
                 used_pairs.add((head, tail))
-                if len(selected_triples) == count:
+                if len(selected_triples) == self.max_triples:
                     return selected_triples
          
         for head, tail in head_tail_pairs:
             if (head, tail) not in used_pairs:
-                if len(selected_triples) < count:
+                if len(selected_triples) < self.max_triples:
                     selected_triples.append([head, relation, tail])
                     used_heads.add(head)
                     used_tails.add(tail)
@@ -99,7 +110,7 @@ class DataManager:
         
         return selected_triples
     
-    def related_triple_finder(self, triple, count):
+    def open_path_finder(self, triple):
         head, relation, tail = triple
         head_triples = self.entity2relationtail_dict[head]
         tail_triples = self.entity2relationtail_dict[tail]
@@ -119,27 +130,46 @@ class DataManager:
         head_similarity = head_embeddings[0] @ head_embeddings[1:].T
         tail_similarity = tail_embeddings[0] @ tail_embeddings[1:].T
         
-        top_head_indices = np.argsort(-head_similarity)[:count]
-        top_tail_indices = np.argsort(-tail_similarity)[:count]
+        each_count = self.max_paths // 2
+        top_head_indices = np.argsort(-head_similarity)[:each_count]
+        top_tail_indices = np.argsort(-tail_similarity)[:each_count]
     
         top_head_sentences = [head_sentences[i] for i in top_head_indices]
         top_tail_sentences = [tail_sentences[i] for i in top_tail_indices]
         
         return top_head_sentences + top_tail_sentences
 
+    def close_path_finder(self, triple):
+        head, relation, tail = triple
+        head_tail = f"{head}-{tail}"
+        close_paths = self.close_path_dict.get(head_tail, [])
+
+        if close_paths:
+            path_degrees = []
+            for path in close_paths:
+                degree_sum = sum(self.relation_degree_dict[rel] for _, rel, _ in path)
+                path_degrees.append((degree_sum, path))
+            path_degrees.sort(key=lambda x: x[0])
+            
+            top_paths = [path for _, path in path_degrees[:self.max_paths]]
+            top_paths.reverse()
+            return top_paths
+
+        return []
+
     def linearize_triple(self, triple):
         return f"({self.entity2text[triple[0]]}, {self.relation2text[triple[1]]}, {self.entity2text[triple[2]]})"
     
     def triple_to_sentence(self, triple):
+        head, relation, tail = triple
         if self.dataset == "FB15k-237-subset":
-            head, relation, tail = triple
             head_property = relation.split('/')[2]
             tail_property = relation.split('/')[-1]
             return f"('{self.entity2text[tail]}' is the {tail_property} of {head_property} '{self.entity2text[head]}')"
         elif self.dataset == "WN18RR-subset":
-            return ""
+            return f"('{self.entity2text[head]}' {self.relation2text[relation]} '{self.entity2text[tail]}')"
         elif self.dataset == "NELL-995-subset":
-            return ""
+            return f"('{self.entity2text[head]}' {self.relation2text[relation]} '{self.entity2text[tail]}')"
         
     def neg_sampling(self, pos_triple, count):
         head, relation, tail = pos_triple
