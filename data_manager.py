@@ -110,7 +110,7 @@ class DataManager:
         
         return selected_triples
     
-    def open_path_finder(self, triple):
+    def neighbor_triple_finder(self, triple):
         head, relation, tail = triple
         head_triples = self.entity2relationtail_dict[head]
         tail_triples = self.entity2relationtail_dict[tail]
