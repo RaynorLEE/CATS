@@ -57,38 +57,19 @@ def build_instructions(dataset, train_size):
         data_manager.entity2relationtail_dict[pos_head].remove(removed_from_head)
         data_manager.entity2relationtail_dict[pos_tail].remove(removed_from_tail)
         
-        pos_fewshot_triples = data_manager.diverse_fewshot_triple_finder(pos_triple)
-        pos_fewshot_triples_sentence = '\n'.join(data_manager.triple_to_sentence(triple) for triple in pos_fewshot_triples)
-        pos_ontology_prompt = ONTOLOGY_REASON_PROMPT.format(fewshot_triples=pos_fewshot_triples_sentence, test_triple=data_manager.triple_to_sentence(pos_triple))
+        pos_ontology_prompt = data_manager.build_ontology_prompt(pos_triple)
         sft_instructions.append({"instruction": pos_ontology_prompt, "input": "", "output": "Y"})
         
-        pos_neighbor_triples = data_manager.neighbor_triple_finder(pos_triple)
-        pos_paths = close_path_finder(data_manager, pos_head, pos_tail)
-        pos_reasoning_paths = "\n".join(
-            " -> ".join(data_manager.triple_to_sentence(triple) for triple in path)
-            for path in pos_paths
-        )
-        pos_reasoning_prompt = PATH_REASON_PROMPT.format(neighbor_triples="\n".join(pos_neighbor_triples), reasoning_paths=pos_reasoning_paths, test_triple=data_manager.triple_to_sentence(pos_triple))
-        pos_reasoning_output = "Y"
-        sft_instructions.append({"instruction": pos_reasoning_prompt, "input": "", "output": pos_reasoning_output})
+        pos_path_prompt = data_manager.build_path_prompt(pos_triple)
+        sft_instructions.append({"instruction": pos_path_prompt, "input": "", "output": "Y"})
 
         neg_samples = data_manager.neg_sampling(pos_triple, 3)
         for neg_triple in neg_samples:
-            neg_head, neg_relation, neg_tail = neg_triple
-            neg_fewshot_triples = data_manager.diverse_fewshot_triple_finder(neg_triple)
-            neg_fewshot_triples_sentence = '\n'.join(data_manager.triple_to_sentence(triple) for triple in neg_fewshot_triples)
-            neg_ontology_prompt = ONTOLOGY_REASON_PROMPT.format(fewshot_triples=neg_fewshot_triples_sentence, test_triple=data_manager.triple_to_sentence(neg_triple))
+            neg_ontology_prompt = data_manager.build_ontology_prompt(neg_triple)
             sft_instructions.append({"instruction": neg_ontology_prompt, "input": "", "output": "N"})
             
-            neg_neighbor_triples = data_manager.neighbor_triple_finder(neg_triple)
-            neg_paths = close_path_finder(data_manager, neg_head, neg_tail)
-            neg_reasoning_paths = "\n".join(
-                " -> ".join(data_manager.triple_to_sentence(triple) for triple in path)
-                for path in neg_paths
-            )
-            neg_reasoning_prompt = PATH_REASON_PROMPT.format(neighbor_triples="\n".join(neg_neighbor_triples), reasoning_paths=neg_reasoning_paths, test_triple=data_manager.triple_to_sentence(neg_triple))
-            neg_reasoning_output = "N"
-            sft_instructions.append({"instruction": neg_reasoning_prompt, "input": "", "output": neg_reasoning_output})
+            neg_path_prompt = data_manager.build_path_prompt(neg_triple)
+            sft_instructions.append({"instruction": neg_path_prompt, "input": "", "output": "N"})
 
         data_manager.entity2relationtail_dict[pos_head].append(removed_from_head)
         data_manager.entity2relationtail_dict[pos_tail].append(removed_from_tail)

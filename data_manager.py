@@ -4,6 +4,7 @@ import random
 import numpy as np
 from collections import defaultdict
 from sentence_transformers import SentenceTransformer
+from prompt_templates import ONTOLOGY_REASON_PROMPT, PATH_REASON_PROMPT, EXPLAINING_PROMPT
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
@@ -13,12 +14,12 @@ class DataManager:
         self.dataset_name = dataset.split("-")[0]
         self.dataset_path = f"datasets/{dataset}" + ("-inductive" if setting=="inductive" else "")
         self.train_size = train_size
-        self.model_path = f"/data/FinAi_Mapping_Knowledge/LLMs/Qwen2-7B-Instruct-{self.dataset_name}-{train_size}"
+        self.model_path = f"/data/FinAi_Mapping_Knowledge/LLMs/Qwen2-7B-Instruct-{self.dataset_name}-{train_size}-v1"
         
-        self.test_batch_size = 50 # 测试集中每50个sample为一个batch，并计算MRR和Hits@1
-        self.max_triples = 5 # Ontology Reasoning阶段最多使用5个fewshot triples
-        self.max_paths = 6 # Path Reasoning阶段最多使用6个path，其中neighbor_triples和close_paths都最多六个
-        self.max_path_hops = 3 # 任意一个Path最多使用3跳path
+        self.test_batch_size = 50     # 测试集中每50个sample为一个batch，并计算MRR和Hits@1
+        self.max_triples = 5          # Ontology Reasoning阶段最多使用5个fewshot triples
+        self.max_paths = 6            # Path Reasoning阶段最多使用6个path，其中neighbor_triples和close_paths都最多六个
+        self.max_path_hops = 3        # 任意一个Path最多使用3跳path
         
         self.entity2text = self._load_text_file("entity2text.txt")
         self.relation2text = self._load_text_file("relation2text.txt")
@@ -76,7 +77,33 @@ class DataManager:
             with open(filepath, "r", encoding="utf-8") as file:
                 return json.load(file)
         return {}
+    
+    def triple_to_sentence(self, triple):
+        head, relation, tail = triple
+        if self.dataset == "FB15k-237-subset":
+            head_property = relation.split('/')[2]
+            tail_property = relation.split('/')[-1]
+            return f"('{self.entity2text[tail]}' is the {tail_property} of {head_property} '{self.entity2text[head]}')"
+        elif self.dataset == "WN18RR-subset":
+            return f"('{self.entity2text[head]}' {self.relation2text[relation]} '{self.entity2text[tail]}')"
+        elif self.dataset == "NELL-995-subset":
+            return f"('{self.entity2text[head]}' {self.relation2text[relation]} '{self.entity2text[tail]}')"
+    
+    def build_ontology_prompt(self, triple):
+        _, relation, _ = triple
+        fewshot_triples = self.fewshot_triple_finder(relation)
+        fewshot_triples_sentence = '\n'.join(self.triple_to_sentence(triple) for triple in fewshot_triples)
+        return ONTOLOGY_REASON_PROMPT.format(fewshot_triples=fewshot_triples_sentence, test_triple=self.triple_to_sentence(triple))
 
+    def build_path_prompt(self, triple):
+        neighbor_triples = self.neighbor_triple_finder(triple)
+        close_paths = self.close_path_finder(triple)
+        reasoning_paths = "\n".join(
+            " -> ".join(self.triple_to_sentence(triple) for triple in path)
+            for path in close_paths
+        )
+        return PATH_REASON_PROMPT.format(neighbor_triples="\n".join(neighbor_triples), reasoning_paths=reasoning_paths, test_triple=self.triple_to_sentence(triple))
+    
     def get_test_batches(self):
         return [self.test_set[i:i + self.test_batch_size] for i in range(0, len(self.test_set), self.test_batch_size)]
 
@@ -162,17 +189,6 @@ class DataManager:
 
     def linearize_triple(self, triple):
         return f"({self.entity2text[triple[0]]}, {self.relation2text[triple[1]]}, {self.entity2text[triple[2]]})"
-    
-    def triple_to_sentence(self, triple):
-        head, relation, tail = triple
-        if self.dataset == "FB15k-237-subset":
-            head_property = relation.split('/')[2]
-            tail_property = relation.split('/')[-1]
-            return f"('{self.entity2text[tail]}' is the {tail_property} of {head_property} '{self.entity2text[head]}')"
-        elif self.dataset == "WN18RR-subset":
-            return f"('{self.entity2text[head]}' {self.relation2text[relation]} '{self.entity2text[tail]}')"
-        elif self.dataset == "NELL-995-subset":
-            return f"('{self.entity2text[head]}' {self.relation2text[relation]} '{self.entity2text[tail]}')"
         
     def neg_sampling(self, pos_triple, count):
         head, relation, tail = pos_triple

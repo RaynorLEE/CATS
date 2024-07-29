@@ -49,7 +49,6 @@ def main():
 
     hits_result_ontology = []
     hits_result_path = []
-    hits_result_all = []
 
     for idx, batch in enumerate(tqdm(test_batches, desc="Processing batches")):
         ontology_prob_in_batch = []
@@ -63,9 +62,12 @@ def main():
         hits_position_ontology = sorted_ontology_indices.index(0) + 1 if 0 in sorted_ontology_indices else 0
         hits_result_ontology.append(hits_position_ontology)
         
+        # Select top 10 based on Y_prob
+        top_10_indices = sorted_ontology_indices[:10]
+        filtered_batch = [batch[i] for _, i in [ontology_prob_in_batch[j] for j in top_10_indices]]
+
         path_prob_in_batch = []
-        
-        for batch_idx, test_triple in enumerate(batch):
+        for test_triple in filtered_batch:
             path_prompt = data_manager.build_path_prompt(test_triple)
             Y_prob = cal_Y_prob(model, tokenizer, generation_config, path_prompt)
             path_prob_in_batch.append(Y_prob)
@@ -73,15 +75,9 @@ def main():
         sorted_path_indices = sorted(range(len(path_prob_in_batch)), key=lambda i: path_prob_in_batch[i], reverse=True)
         hits_position_path = sorted_path_indices.index(0) + 1 if 0 in sorted_path_indices else 0
         hits_result_path.append(hits_position_path)
-
-        # Ensemble
-        combined_ranks = [sorted_ontology_indices.index(i) + sorted_path_indices.index(i) for i in range(len(sorted_ontology_indices))]
-        sorted_combined_indices = sorted(range(len(combined_ranks)), key=lambda i: combined_ranks[i])
-        hits_position_all = sorted_combined_indices.index(0) + 1 if 0 in sorted_combined_indices else 0
-        hits_result_all.append(hits_position_all)
     
-    print("Propotion of top 10:", sum(1 for hits in hits_result_ontology if hits <= 10) / len(hits_result_ontology))
-    print("Propotion of top 5:", sum(1 for hits in hits_result_ontology if hits <= 5) / len(hits_result_ontology))
+    print("Proportion of top 10 in ontology:", sum(1 for hits in hits_result_ontology if hits <= 10) / len(hits_result_ontology))
+    print("Proportion of top 5 in ontology:", sum(1 for hits in hits_result_ontology if hits <= 5) / len(hits_result_ontology))
     
     print("Ontology Hits results:", hits_result_ontology)
     print("Ontology Hit@1:", sum(1 for hits in hits_result_ontology if hits == 1) / len(hits_result_ontology))
@@ -90,10 +86,6 @@ def main():
     print("Path Hits results:", hits_result_path)
     print("Path Hit@1:", sum(1 for hits in hits_result_path if hits == 1) / len(hits_result_path))
     print("Path MRR:", sum(1 / hits for hits in hits_result_path if hits != 0) / len(hits_result_path))
-
-    print("Ensemble Hits results:", hits_result_all)
-    print("Ensemble Hit@1:", sum(1 for hits in hits_result_all if hits == 1) / len(hits_result_all))
-    print("Ensemble MRR:", sum(1 / hits for hits in hits_result_all if hits != 0) / len(hits_result_all))
 
 if __name__ == "__main__":
     main()
