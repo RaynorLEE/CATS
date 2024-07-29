@@ -14,11 +14,11 @@ class DataManager:
         self.dataset_name = dataset.split("-")[0]
         self.dataset_path = f"datasets/{dataset}" + ("-inductive" if setting=="inductive" else "")
         self.train_size = train_size
-        self.model_path = f"/data/FinAi_Mapping_Knowledge/LLMs/Qwen2-7B-Instruct-{self.dataset_name}-{train_size}-v1"
+        self.model_path = f"/home/yangcehao/Qwen2-7B-Instruct-{self.dataset_name}-{train_size}"
         
         self.test_batch_size = 50     # 测试集中每50个sample为一个batch，并计算MRR和Hits@1
-        self.max_triples = 5          # Ontology Reasoning阶段最多使用5个fewshot triples
-        self.max_paths = 6            # Path Reasoning阶段最多使用6个path，其中neighbor_triples和close_paths都最多六个
+        self.max_ontology_triples = 5          # Ontology Reasoning阶段最多使用5个fewshot triples
+        self.max_reason_paths = 6            # Path Reasoning阶段最多使用6个path，其中neighbor_triples和close_paths都最多六个
         self.max_path_hops = 3        # 任意一个Path最多使用3跳path
         
         self.entity2text = self._load_text_file("entity2text.txt")
@@ -90,8 +90,7 @@ class DataManager:
             return f"('{self.entity2text[head]}' {self.relation2text[relation]} '{self.entity2text[tail]}')"
     
     def build_ontology_prompt(self, triple):
-        _, relation, _ = triple
-        fewshot_triples = self.fewshot_triple_finder(relation)
+        fewshot_triples = self.diverse_fewshot_triple_finder(triple)
         fewshot_triples_sentence = '\n'.join(self.triple_to_sentence(triple) for triple in fewshot_triples)
         return ONTOLOGY_REASON_PROMPT.format(fewshot_triples=fewshot_triples_sentence, test_triple=self.triple_to_sentence(triple))
 
@@ -106,10 +105,6 @@ class DataManager:
     
     def get_test_batches(self):
         return [self.test_set[i:i + self.test_batch_size] for i in range(0, len(self.test_set), self.test_batch_size)]
-
-    def fewshot_triple_finder(self, relation):
-        head_tail_pairs = self.relation2headtail_dict[relation]
-        return [[head, relation, tail] for head, tail in head_tail_pairs]
     
     def diverse_fewshot_triple_finder(self, test_triple):
         test_head, relation, test_tail = test_triple
@@ -125,12 +120,12 @@ class DataManager:
                 used_heads.add(head)
                 used_tails.add(tail)
                 used_pairs.add((head, tail))
-                if len(selected_triples) == self.max_triples:
+                if len(selected_triples) == self.max_ontology_triples:
                     return selected_triples
          
         for head, tail in head_tail_pairs:
             if (head, tail) not in used_pairs:
-                if len(selected_triples) < self.max_triples:
+                if len(selected_triples) < self.max_ontology_triples:
                     selected_triples.append([head, relation, tail])
                     used_heads.add(head)
                     used_tails.add(tail)
@@ -160,7 +155,7 @@ class DataManager:
         head_similarity = head_embeddings[0] @ head_embeddings[1:].T
         tail_similarity = tail_embeddings[0] @ tail_embeddings[1:].T
         
-        each_count = self.max_paths // 2
+        each_count = self.max_reason_paths // 2
         top_head_indices = np.argsort(-head_similarity)[:each_count]
         top_tail_indices = np.argsort(-tail_similarity)[:each_count]
     
@@ -181,7 +176,7 @@ class DataManager:
                 path_degrees.append((degree_sum, path))
             path_degrees.sort(key=lambda x: x[0])
             
-            top_paths = [path for _, path in path_degrees[:self.max_paths]]
+            top_paths = [path for _, path in path_degrees[:self.max_reason_paths]]
             top_paths.reverse()
             return top_paths
 

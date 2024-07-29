@@ -164,5 +164,4 @@ cython_debug/
 data/
 datasets/
 instructions/
-instructions*
-ins*
+logs/

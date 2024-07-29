@@ -5,7 +5,6 @@ from collections import defaultdict, deque
 from data_manager import DataManager
 from tqdm import tqdm
 import argparse
-from prompt_templates import ONTOLOGY_REASON_PROMPT, PATH_REASON_PROMPT, EXPLAINING_PROMPT
 
 def bfs_paths(entity2relationtail_dict, start, goal, max_hops, max_paths):
     queue = deque([(start, [], 0, set([start]))])
