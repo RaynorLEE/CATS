@@ -1,7 +1,7 @@
 import os
 import argparse
 from tqdm import tqdm
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 from data_manager import DataManager
 from prompt_templates import ONTOLOGY_REASON_PROMPT, PATH_REASON_PROMPT, EXPLAINING_PROMPT
@@ -17,13 +17,9 @@ def main():
 
     data_manager = DataManager(dataset=args.dataset, setting=args.setting, train_size=args.train_size)
     test_batches = data_manager.get_test_batches()
-    
-    # model_path = "/data/FinAi_Mapping_Knowledge/LLMs/Qwen2-7B-Instruct"
-    model_path = "/data/FinAi_Mapping_Knowledge/LLMs/Qwen2-7B-Instruct-fb-v0"
-    # model_path = "/data/FinAi_Mapping_Knowledge/LLMs/Qwen1.5-14B-Chat"
 
-    model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype="auto",device_map="auto")
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    model = AutoModelForCausalLM.from_pretrained(data_manager.model_path, torch_dtype="auto",device_map="auto")
+    tokenizer = AutoTokenizer.from_pretrained(data_manager.model_path)
 
     generation_config = dict(
         temperature=0,
@@ -82,7 +78,7 @@ def main():
                 " -> ".join(data_manager.triple_to_sentence(triple) for triple in path)
                 for path in test_close_paths
             )
-            path_prompt = PATH_REASON_PROMPT.format(known_triples='\n'.join(neighbor_triples), reasoning_paths=reasoning_paths, test_triple=data_manager.triple_to_sentence(test_triple))
+            path_prompt = PATH_REASON_PROMPT.format(neighbor_triples='\n'.join(neighbor_triples), reasoning_paths=reasoning_paths, test_triple=data_manager.triple_to_sentence(test_triple))
             # print(path_prompt)
             path_messages = [
                 {"role": "user", "content": path_prompt}

@@ -68,7 +68,7 @@ def build_instructions(dataset, train_size):
             " -> ".join(data_manager.triple_to_sentence(triple) for triple in path)
             for path in pos_paths
         )
-        pos_reasoning_prompt = PATH_REASON_PROMPT.format(known_triples="\n".join(pos_neighbor_triples), reasoning_paths=pos_reasoning_paths, test_triple=data_manager.triple_to_sentence(pos_triple))
+        pos_reasoning_prompt = PATH_REASON_PROMPT.format(neighbor_triples="\n".join(pos_neighbor_triples), reasoning_paths=pos_reasoning_paths, test_triple=data_manager.triple_to_sentence(pos_triple))
         pos_reasoning_output = "Y"
         sft_instructions.append({"instruction": pos_reasoning_prompt, "input": "", "output": pos_reasoning_output})
 
@@ -86,7 +86,7 @@ def build_instructions(dataset, train_size):
                 " -> ".join(data_manager.triple_to_sentence(triple) for triple in path)
                 for path in neg_paths
             )
-            neg_reasoning_prompt = PATH_REASON_PROMPT.format(known_triples="\n".join(neg_neighbor_triples), reasoning_paths=neg_reasoning_paths, test_triple=data_manager.triple_to_sentence(neg_triple))
+            neg_reasoning_prompt = PATH_REASON_PROMPT.format(neighbor_triples="\n".join(neg_neighbor_triples), reasoning_paths=neg_reasoning_paths, test_triple=data_manager.triple_to_sentence(neg_triple))
             neg_reasoning_output = "N"
             sft_instructions.append({"instruction": neg_reasoning_prompt, "input": "", "output": neg_reasoning_output})
 

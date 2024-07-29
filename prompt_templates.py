@@ -9,7 +9,7 @@ Please return 'Y' if the input triple is consistent in entity type, otherwise re
 
 PATH_REASON_PROMPT = """Please determine whether the relation in the input can be reliably inferred between the head and tail entities, based on a set of neighbor triples and reasoning paths from the knowledge graph.
 A set of neighbor triples from the knowledge graph are:
-{known_triples}
+{neighbor_triples}
 A set of reasoning paths from the knowledge graph are:
 {reasoning_paths}
 The relation to be inferred is:

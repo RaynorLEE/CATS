@@ -10,12 +10,14 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 class DataManager:
     def __init__(self, dataset="FB15k-237-subset", setting="inductive", train_size="full"):
         self.dataset = dataset
+        self.dataset_name = dataset.split("-")[0]
         self.dataset_path = f"datasets/{dataset}" + ("-inductive" if setting=="inductive" else "")
         self.train_size = train_size
+        self.model_path = f"/data/FinAi_Mapping_Knowledge/LLMs/Qwen2-7B-Instruct-{self.dataset_name}-{train_size}"
         
         self.test_batch_size = 50 # 测试集中每50个sample为一个batch，并计算MRR和Hits@1
         self.max_triples = 5 # Ontology Reasoning阶段最多使用5个fewshot triples
-        self.max_paths = 6 # Path Reasoning阶段最多使用6个path，要么close path，要么open path
+        self.max_paths = 6 # Path Reasoning阶段最多使用6个path，其中neighbor_triples和close_paths都最多六个
         self.max_path_hops = 3 # 任意一个Path最多使用3跳path
         
         self.entity2text = self._load_text_file("entity2text.txt")
@@ -31,10 +33,11 @@ class DataManager:
         self.relation2headtail_dict = self._load_relation2headtail_dict(self.path_set)
         self.entity2relationtail_dict = self._load_entity2relationtail_dict(self.path_set)
         self.relation_degree_dict = self._load_relation_degree_dict(self.path_set)
-        self.close_path_dict = self._load_close_path_dict(f"paths/close_path.json")
+        close_path_file = f"paths/close_path.json" if setting=="inductive" else f"paths/close_path_train_size_{self.train_size}.json"
+        self.close_path_dict = self._load_close_path_dict(close_path_file)
         
         self.embedding_model = SentenceTransformer(
-            model_name_or_path='BAAI/bge-small-en-v1.5',
+            model_name_or_path='/home/yangcehao/bge-small-en-v1.5',
             device="cuda"
         )
 
