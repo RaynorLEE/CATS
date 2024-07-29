@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "4"
 import argparse
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -42,7 +42,7 @@ def main():
     log_file = os.path.join(log_dir, f"log_{args.dataset}_{args.setting}_{args.train_size}.txt")
 
     data_manager = DataManager(dataset=args.dataset, setting=args.setting, train_size=args.train_size)
-    test_batches = data_manager.get_test_batches()[:10]
+    test_batches = data_manager.get_test_batches()
 
     model = AutoModelForCausalLM.from_pretrained(data_manager.model_path, torch_dtype="auto", device_map="auto")
     tokenizer = AutoTokenizer.from_pretrained(data_manager.model_path)
@@ -59,6 +59,7 @@ def main():
     hits_result_all = []
     hits_result_ontology_filtered_path = []
     llm_batch_size = 8
+    sample_counter = 0
 
     with open(log_file, 'w') as log:
         log.write(f"Using model: {data_manager.model_path}\n")
@@ -72,9 +73,10 @@ def main():
                 ontology_probs.extend(cal_Y_prob(model, tokenizer, generation_config, batch_prompts))
             
             for i, (prompt, prob) in enumerate(zip(ontology_prompts, ontology_probs)):
-                log.write(f"Sample {idx * llm_batch_size + i} Ontology Prompt: {prompt}")
-                log.write(f"Sample {idx * llm_batch_size + i} Ontology Probability: {prob}\n")
+                log.write(f"Sample {sample_counter} Ontology Prompt: {prompt}")
+                log.write(f"Sample {sample_counter} Ontology 'Y' token Probability: {prob}\n")
                 log.write("*"*50 + "\n")
+                sample_counter += 1
                 
             ontology_prob_in_batch = list(zip(ontology_probs, range(len(ontology_probs))))
             sorted_ontology_indices = sorted(range(len(ontology_prob_in_batch)), key=lambda i: ontology_prob_in_batch[i][0], reverse=True)
@@ -91,9 +93,10 @@ def main():
                 path_probs.extend(cal_Y_prob(model, tokenizer, generation_config, batch_prompts))
 
             for i, (prompt, prob) in enumerate(zip(path_prompts, path_probs)):
-                log.write(f"Sample {idx * llm_batch_size + i} Path Prompt: {prompt}")
-                log.write(f"Sample {idx * llm_batch_size + i} Path Probability: {prob}\n")
+                log.write(f"Sample {sample_counter} Path Prompt: {prompt}\n")
+                log.write(f"Sample {sample_counter} Path 'Y' token Probability: {prob}\n")
                 log.write("*"*50 + "\n")
+                sample_counter += 1
 
             path_prob_in_batch = list(zip(path_probs, range(len(path_probs))))
             sorted_path_indices = sorted(range(len(path_prob_in_batch)), key=lambda i: path_prob_in_batch[i][0], reverse=True)
@@ -112,6 +115,7 @@ def main():
             sorted_filtered_path_indices = sorted(range(len(filtered_path_prob_in_batch)), key=lambda i: filtered_path_prob_in_batch[i][0], reverse=True)
             hits_position_ontology_filtered_path = sorted_filtered_path_indices.index(0) + 1 if 0 in sorted_filtered_path_indices else 0
             hits_result_ontology_filtered_path.append(hits_position_ontology_filtered_path)
+            log.flush()
         
         def log_results(label, results):
             log.write(f"{label} Hits results: {results}\n")
@@ -126,6 +130,7 @@ def main():
         log_results("Path", hits_result_path)
         log_results("Ensemble", hits_result_all)
         log_results("Ontology Filtered Path", hits_result_ontology_filtered_path)
+        log.flush()
 
 if __name__ == "__main__":
     main()
