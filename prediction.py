@@ -1,9 +1,10 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import argparse
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from data_manager import DataManager
+from datetime import datetime
 
 def cal_Y_prob(model, tokenizer, generation_config, prompt_list):
     messages_batch = [
@@ -39,7 +40,8 @@ def main():
 
     log_dir = "logs"
     os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, f"log_{args.dataset}_{args.setting}_{args.train_size}.txt")
+    timestamp = datetime.now().strftime("%m%d%H%M")
+    log_file = os.path.join(log_dir, f"log_{args.dataset}_{args.setting}_{args.train_size}_{timestamp}.txt")
 
     data_manager = DataManager(dataset=args.dataset, setting=args.setting, train_size=args.train_size)
     test_batches = data_manager.get_test_batches()
@@ -56,7 +58,8 @@ def main():
 
     hits_result_ontology = []
     hits_result_path = []
-    hits_result_all = []
+    hits_result_average_ensemble = []
+    hits_result_weighted_ensemble = []
     hits_result_ontology_filtered_path = []
     llm_batch_size = 8
     sample_counter = 0
@@ -84,9 +87,9 @@ def main():
             hits_position_ontology = sorted_ontology_indices.index(0) + 1 if 0 in sorted_ontology_indices else 0
             hits_result_ontology.append(hits_position_ontology)
 
-            top_10_indices = sorted_ontology_indices[:10]
-            ontology_filtered_list = [ontology_prob_in_batch[i][1] for i in top_10_indices]
-
+            top_10_ontology_indices = sorted_ontology_indices[:10]
+            ontology_filtered_set = set(top_10_ontology_indices)
+            
             path_probs = []
             for i in range(0, len(path_prompts), llm_batch_size):
                 batch_prompts = path_prompts[i:i + llm_batch_size]
@@ -107,14 +110,21 @@ def main():
             # Ensemble ontology reasoning and path reasoning
             combined_ranks = [sorted_ontology_indices.index(i) + sorted_path_indices.index(i) for i in range(len(sorted_ontology_indices))]
             sorted_combined_indices = sorted(range(len(combined_ranks)), key=lambda i: combined_ranks[i])
-            hits_position_all = sorted_combined_indices.index(0) + 1 if 0 in sorted_combined_indices else 0
-            hits_result_all.append(hits_position_all)
+            hits_position_average_ensemble = sorted_combined_indices.index(0) + 1 if 0 in sorted_combined_indices else 0
+            hits_result_average_ensemble.append(hits_position_average_ensemble)
+            
+            # Weighted Ensemble
+            weighted_scores = [(1 / (sorted_ontology_indices.index(i) + 1) + 1 / (sorted_path_indices.index(i) + 1)) for i in range(len(sorted_ontology_indices))]
+            sorted_weighted_indices = sorted(range(len(weighted_scores)), key=lambda i: weighted_scores[i], reverse=True)
+            hits_position_weighted_ensemble = sorted_weighted_indices.index(0) + 1 if 0 in sorted_weighted_indices else 0
+            hits_result_weighted_ensemble.append(hits_position_weighted_ensemble)
             
             # Filter path results based on ontology_filtered_list
-            filtered_path_prob_in_batch = [path_prob_in_batch[i] for i in ontology_filtered_list]
-            sorted_filtered_path_indices = sorted(range(len(filtered_path_prob_in_batch)), key=lambda i: filtered_path_prob_in_batch[i][0], reverse=True)
+            sorted_filtered_path_indices = [index for index in sorted_path_indices if index in ontology_filtered_set]
+            log.write(f"Sorted filtered path indices: {sorted_filtered_path_indices}\n")
             hits_position_ontology_filtered_path = sorted_filtered_path_indices.index(0) + 1 if 0 in sorted_filtered_path_indices else 0
             hits_result_ontology_filtered_path.append(hits_position_ontology_filtered_path)
+            log.write("*"*50 + "\n")
             log.flush()
         
         def log_results(label, results):
@@ -128,7 +138,8 @@ def main():
         
         log_results("Ontology", hits_result_ontology)
         log_results("Path", hits_result_path)
-        log_results("Ensemble", hits_result_all)
+        log_results("Average Ensemble", hits_result_average_ensemble)
+        log_results("Weighted Ensemble", hits_result_weighted_ensemble)
         log_results("Ontology Filtered Path", hits_result_ontology_filtered_path)
         log.flush()
 
