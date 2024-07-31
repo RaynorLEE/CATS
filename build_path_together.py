@@ -9,15 +9,14 @@ def build_path(params):
         '--dataset', dataset,
         '--setting', setting,
         '--train_size', train_size,
-        '--max_path_hop', '3'
     ]
     command = ["python", "build_close_path.py"] + model_params
     subprocess.run(command)
 
 def main():
     datasets = ["FB15k-237-subset", "NELL-995-subset", "WN18RR-subset"]
-    settings = ["inductive", "transductive"]
-    train_sizes = ["1000", "2000", "full"]
+    settings = ["transductive"]
+    train_sizes = ["1000", "2000"]
     # datasets = ["FB15k-237-subset"]
     # settings = ["inductive"]
     # train_sizes = ["full"]

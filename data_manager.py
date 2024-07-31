@@ -2,11 +2,9 @@ import os
 import json
 import random
 import numpy as np
-from collections import defaultdict
+from collections import defaultdict, deque
 from sentence_transformers import SentenceTransformer
 from prompt_templates import ONTOLOGY_REASON_PROMPT, PATH_REASON_PROMPT, EXPLAINING_PROMPT
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 class DataManager:
     def __init__(self, dataset="FB15k-237-subset", setting="inductive", train_size="full"):
@@ -14,12 +12,12 @@ class DataManager:
         self.dataset_name = dataset.split("-")[0]
         self.dataset_path = f"datasets/{dataset}" + ("-inductive" if setting=="inductive" else "")
         self.train_size = train_size
-        self.model_path = f"/home/yangcehao/Qwen2-7B-Instruct-{self.dataset_name}-{train_size}"
+        self.model_path = f"/home/yangcehao/Qwen2-7B-Instruct-{self.dataset_name}-{train_size}-v2"
         
-        self.test_batch_size = 50     # 测试集中每50个sample为一个batch，并计算MRR和Hits@1
-        self.max_ontology_triples = 5          # Ontology Reasoning阶段最多使用5个fewshot triples
-        self.max_reason_paths = 6            # Path Reasoning阶段最多使用6个path，其中neighbor_triples和close_paths都最多六个
-        self.max_path_hops = 3        # 任意一个Path最多使用3跳path
+        self.test_batch_size = 50                                    # 测试集中每50个sample为一个batch，并计算MRR和Hits@1
+        self.max_ontology_triples = 5                                # Ontology Reasoning阶段最多使用5个fewshot triples
+        self.max_reason_paths = 6                                    # Path Reasoning阶段最多使用6个path，其中neighbor_triples和close_paths都最多六个
+        self.max_path_hops = 3 if self.train_size=="full" else 4     # 全量的时候用3hop，小样本用4hop
         
         self.entity2text = self._load_text_file("entity2text.txt")
         self.relation2text = self._load_text_file("relation2text.txt")
@@ -77,6 +75,46 @@ class DataManager:
             with open(filepath, "r", encoding="utf-8") as file:
                 return json.load(file)
         return {}
+
+    # 输入head entity和tail entity，使用bfs遍历搜索所有close_paths
+    def bfs_paths(self, start, goal):
+        queue = deque([(start, [], 0, set([start]))])
+        paths = []
+        while queue:
+            current, path, hops, visited = queue.popleft()
+            if hops < self.max_path_hops:
+                for relation, neighbor, direction in self.entity2relationtail_dict[current]:
+                    if direction == 1:
+                        new_path = path + [(current, relation, neighbor)]
+                    else:
+                        new_path = path + [(neighbor, relation, current)]
+                    if neighbor == goal:
+                        paths.append(new_path)
+                    elif neighbor not in visited:
+                        queue.append((neighbor, new_path, hops + 1, visited | set([neighbor])))
+        return paths
+    
+    # 用一个relation_degree计算所有close_paths的degree和，然后排序，取最小的几个，这样能排除"gender","ethnicity"等高频relation
+    def close_path_finder(self, triple):
+        head, relation, tail = triple
+        head_tail = f"{head}-{tail}"
+        close_paths = self.close_path_dict.get(head_tail, [])
+
+        if close_paths:
+            path_degrees = []
+            for path in close_paths:
+                degree_sum = sum(self.relation_degree_dict[rel] for _, rel, _ in path)
+                path_degrees.append((degree_sum, path))
+            path_degrees.sort(key=lambda x: x[0])
+            
+            top_paths = [path for _, path in path_degrees[:self.max_reason_paths]]
+            top_paths.reverse()
+            return top_paths
+
+        return []
+
+    def linearize_triple(self, triple):
+        return f"({self.entity2text[triple[0]]}, {self.relation2text[triple[1]]}, {self.entity2text[triple[2]]})"
     
     def triple_to_sentence(self, triple):
         head, relation, tail = triple
@@ -109,6 +147,11 @@ class DataManager:
     def diverse_fewshot_triple_finder(self, test_triple):
         test_head, relation, test_tail = test_triple
         head_tail_pairs = self.relation2headtail_dict[relation]
+        random.shuffle(head_tail_pairs)
+        
+        if len(head_tail_pairs) <= self.max_ontology_triples:
+            return [[head, relation, tail] for head, tail in head_tail_pairs]
+        
         used_heads = {test_head, test_tail}
         used_tails = {test_tail, test_head}
         used_pairs = set()
@@ -135,11 +178,12 @@ class DataManager:
         
         return selected_triples
     
+    # path_reasoning里面的neighbor triple，尽可能找到与当前triple相关的neighbor triple
     def neighbor_triple_finder(self, triple):
         head, relation, tail = triple
         head_triples = self.entity2relationtail_dict[head]
         tail_triples = self.entity2relationtail_dict[tail]
-        
+
         triple_sentence = self.triple_to_sentence(triple)
         head_sentences = [self.triple_to_sentence((head, rel, t)) if direction == 1 else self.triple_to_sentence((t, rel, head))
                           for rel, t, direction in head_triples]
@@ -149,48 +193,39 @@ class DataManager:
         all_head_sentences = [triple_sentence] + head_sentences
         all_tail_sentences = [triple_sentence] + tail_sentences
         
-        head_embeddings = self.embedding_model.encode(all_head_sentences, normalize_embeddings=True)
-        tail_embeddings = self.embedding_model.encode(all_tail_sentences, normalize_embeddings=True)
-        
-        head_similarity = head_embeddings[0] @ head_embeddings[1:].T
-        tail_similarity = tail_embeddings[0] @ tail_embeddings[1:].T
-        
         each_count = self.max_reason_paths // 2
-        top_head_indices = np.argsort(-head_similarity)[:each_count]
-        top_tail_indices = np.argsort(-tail_similarity)[:each_count]
-    
-        top_head_sentences = [head_sentences[i] for i in top_head_indices]
-        top_tail_sentences = [tail_sentences[i] for i in top_tail_indices]
+        
+        top_head_sentences = head_sentences
+        top_tail_sentences = tail_sentences
+
+        if len(head_sentences) > each_count:
+            head_embeddings = self.embedding_model.encode(all_head_sentences, normalize_embeddings=True)
+            head_similarity = head_embeddings[0] @ head_embeddings[1:].T
+            top_head_indices = np.argsort(-head_similarity)[:each_count]
+            top_head_sentences = [head_sentences[i] for i in top_head_indices]
+
+        if len(tail_sentences) > each_count:
+            tail_embeddings = self.embedding_model.encode(all_tail_sentences, normalize_embeddings=True)
+            tail_similarity = tail_embeddings[0] @ tail_embeddings[1:].T
+            top_tail_indices = np.argsort(-tail_similarity)[:each_count]
+            top_tail_sentences = [tail_sentences[i] for i in top_tail_indices]
         
         return top_head_sentences + top_tail_sentences
-
-    def close_path_finder(self, triple):
-        head, relation, tail = triple
-        head_tail = f"{head}-{tail}"
-        close_paths = self.close_path_dict.get(head_tail, [])
-
-        if close_paths:
-            path_degrees = []
-            for path in close_paths:
-                degree_sum = sum(self.relation_degree_dict[rel] for _, rel, _ in path)
-                path_degrees.append((degree_sum, path))
-            path_degrees.sort(key=lambda x: x[0])
-            
-            top_paths = [path for _, path in path_degrees[:self.max_reason_paths]]
-            top_paths.reverse()
-            return top_paths
-
-        return []
-
-    def linearize_triple(self, triple):
-        return f"({self.entity2text[triple[0]]}, {self.relation2text[triple[1]]}, {self.entity2text[triple[2]]})"
-        
+    
+    # 负采样：对于正样本triple，分别破坏head, relaton和tail，并为它们随机采样。
     def neg_sampling(self, pos_triple, count):
         head, relation, tail = pos_triple
-        candidate_entities = {entity for triple in self.path_set for entity in (triple[0], triple[2])} - {head, tail}
-        seen_triples = {tuple(triple) for triple in self.path_set}
         
+        entities = set()
+        for triple in self.path_set:
+            entities.add(triple[0])
+            entities.add(triple[2])
+        
+        candidate_entities = entities - {head, tail}
+        seen_triples = {tuple(triple) for triple in self.path_set}
         negative_samples = []
+        
+        # 破坏head
         for _ in range(count):
             while True:
                 new_head = random.choice(list(candidate_entities))
@@ -199,6 +234,7 @@ class DataManager:
                     negative_samples.append((new_head, relation, tail))
                     break
         
+        # 破坏tail
         for _ in range(count):
             while True:
                 new_tail = random.choice(list(candidate_entities))
@@ -206,7 +242,15 @@ class DataManager:
                     seen_triples.add((head, relation, new_tail))
                     negative_samples.append((head, relation, new_tail))
                     break
+                
+        # candidate_relations = {triple[1] for triple in self.path_set} - {relation}
+        # 破坏relation
+        # for _ in range(count):
+        #     while True:
+        #         new_relation = random.choice(list(candidate_relations))
+        #         if (head, new_relation, tail) not in seen_triples:
+        #             seen_triples.add((head, new_relation, tail))
+        #             negative_samples.append((head, new_relation, tail))
+        #             break
         
         return negative_samples
-
-    
