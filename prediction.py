@@ -35,14 +35,15 @@ def main():
     parser.add_argument("--dataset", type=str, choices=["FB15k-237-subset", "NELL-995-subset", "WN18RR-subset"], default="FB15k-237-subset", help="Name of the dataset")
     parser.add_argument("--setting", type=str, choices=["inductive", "transductive"], default="inductive", help="Inductive or Transductive setting")
     parser.add_argument("--train_size", type=str, choices=["full", "1000", "2000"], default="full", help="Size of the training data")
+    parser.add_argument("--version", type=str, default="")
     args = parser.parse_args()
 
-    log_dir = "logs-v2"
+    log_dir = f"logs{args.version}"
     os.makedirs(log_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%m%d%H%M")
     log_file = os.path.join(log_dir, f"log_{args.dataset}_{args.setting}_{args.train_size}_{timestamp}.txt")
 
-    data_manager = DataManager(dataset=args.dataset, setting=args.setting, train_size=args.train_size)
+    data_manager = DataManager(dataset=args.dataset, setting=args.setting, train_size=args.train_size, version=args.version)
     test_batches = data_manager.get_test_batches()
 
     model = AutoModelForCausalLM.from_pretrained(data_manager.model_path, torch_dtype="auto", device_map="auto")
@@ -62,6 +63,13 @@ def main():
     hits_result_ontology_filtered_path = []
     llm_batch_size = 8
     sample_counter = 0
+
+    def log_results(label, results):
+        log.write(f"{label} Hits results: {results}\n")
+        hit_at_1 = round(sum(1 for hits in results if hits == 1) / len(results), 3)
+        mrr = round(sum(1 / hits for hits in results if hits != 0) / len(results), 3)
+        log.write(f"{label} Hit@1: {hit_at_1}\n")
+        log.write(f"{label} MRR: {mrr}\n")
 
     with open(log_file, 'w') as log:
         log.write(f"Using model: {data_manager.model_path}\n")
@@ -125,11 +133,16 @@ def main():
             hits_result_ontology_filtered_path.append(hits_position_ontology_filtered_path)
             log.write("*"*50 + "\n")
             log.flush()
-        
-        def log_results(label, results):
-            log.write(f"{label} Hits results: {results}\n")
-            log.write(f"{label} Hit@1: {sum(1 for hits in results if hits == 1) / len(results)}\n")
-            log.write(f"{label} MRR: {sum(1 / hits for hits in results if hits != 0) / len(results)}\n")
+            
+            if (idx + 1) % 100 == 0:
+                log.write(f"\nMetrics after processing {idx + 1} batches:\n")
+                log_results("Ontology", hits_result_ontology)
+                log_results("Path", hits_result_path)
+                log_results("Average Ensemble", hits_result_average_ensemble)
+                log_results("Weighted Ensemble", hits_result_weighted_ensemble)
+                log_results("Ontology Filtered Path", hits_result_ontology_filtered_path)
+                log.write("\n" + "="*50 + "\n")
+                log.flush()
 
         log.write("Final Results:\n")
         log.write("Propotion of ontology reasoning top 5: {}\n".format(sum(1 for hits in hits_result_ontology if hits <= 5) / len(hits_result_ontology)))

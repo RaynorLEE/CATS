@@ -5,26 +5,8 @@ from data_manager import DataManager
 from tqdm import tqdm
 import argparse
 
-def bfs_paths(entity2relationtail_dict, start, goal, max_path_hops):
-    queue = deque([(start, [], 0, set([start]))])
-    paths = []
-    while queue:
-        current, path, hops, visited = queue.popleft()
-        if hops < max_path_hops:
-            for relation, neighbor, direction in entity2relationtail_dict[current]:
-                if direction == 1:
-                    new_path = path + [(current, relation, neighbor)]
-                else:
-                    new_path = path + [(neighbor, relation, current)]
-                if neighbor == goal:
-                    paths.append(new_path)
-                elif neighbor not in visited:
-                    queue.append((neighbor, new_path, hops + 1, visited | set([neighbor])))
-    return paths
-
 def process_dataset(dataset, setting, train_size):
     data_manager = DataManager(dataset=dataset, setting=setting, train_size=train_size)
-    entity2relationtail_dict = data_manager.entity2relationtail_dict
 
     paths_dir = f"{data_manager.dataset_path}/paths_v2"
     os.makedirs(paths_dir, exist_ok=True)
@@ -34,7 +16,7 @@ def process_dataset(dataset, setting, train_size):
     
     for triple in tqdm(data_manager.test_set, desc=f"Processing {dataset} - setting: {setting} - Train_size: {train_size}"):
         head, relation, tail = triple
-        paths = list(bfs_paths(entity2relationtail_dict, head, tail, data_manager.max_path_hops))
+        paths = list(data_manager.bfs_paths(head, tail))
         close_path_dict[f"{head}-{tail}"] = paths
         
         for path_pair in paths:

@@ -7,17 +7,17 @@ from sentence_transformers import SentenceTransformer
 from prompt_templates import ONTOLOGY_REASON_PROMPT, PATH_REASON_PROMPT, EXPLAINING_PROMPT
 
 class DataManager:
-    def __init__(self, dataset="FB15k-237-subset", setting="inductive", train_size="full"):
+    def __init__(self, dataset="FB15k-237-subset", setting="inductive", train_size="full", model_name="Qwen2-7B-Instruct", version=""):
         self.dataset = dataset
         self.dataset_name = dataset.split("-")[0]
         self.dataset_path = f"datasets/{dataset}" + ("-inductive" if setting=="inductive" else "")
         self.train_size = train_size
-        self.model_path = f"/home/yangcehao/Qwen2-7B-Instruct-{self.dataset_name}-{train_size}-v2"
+        self.model_path = f"/home/yangcehao/Qwen2-7B-Instruct-{self.dataset_name}-{train_size}{version}"
         
         self.test_batch_size = 50                                    # 测试集中每50个sample为一个batch，并计算MRR和Hits@1
         self.max_ontology_triples = 5                                # Ontology Reasoning阶段最多使用5个fewshot triples
         self.max_reason_paths = 6                                    # Path Reasoning阶段最多使用6个path，其中neighbor_triples和close_paths都最多六个
-        self.max_path_hops = 3 if self.train_size=="full" else 4     # 全量的时候用3hop，小样本用4hop
+        self.max_path_hops = 3                                       # bfs搜索close_path的最大深度
         
         self.entity2text = self._load_text_file("entity2text.txt")
         self.relation2text = self._load_text_file("relation2text.txt")
@@ -32,8 +32,8 @@ class DataManager:
         self.relation2headtail_dict = self._load_relation2headtail_dict(self.path_set)
         self.entity2relationtail_dict = self._load_entity2relationtail_dict(self.path_set)
         self.relation_degree_dict = self._load_relation_degree_dict(self.path_set)
-        close_path_file = f"paths/close_path.json" if setting=="inductive" else f"paths/close_path_train_size_{self.train_size}.json"
-        self.close_path_dict = self._load_close_path_dict(close_path_file)
+        self.close_path_file = f"paths/close_path.json" if setting=="inductive" else f"paths/close_path_train_size_{self.train_size}.json"
+        self.close_path_dict = self._load_close_path_dict(self.close_path_file)
         
         self.embedding_model = SentenceTransformer(
             model_name_or_path='/home/yangcehao/bge-small-en-v1.5',
@@ -98,7 +98,7 @@ class DataManager:
     def close_path_finder(self, triple):
         head, relation, tail = triple
         head_tail = f"{head}-{tail}"
-        close_paths = self.close_path_dict.get(head_tail, [])
+        close_paths = self.close_path_dict[head_tail]
 
         if close_paths:
             path_degrees = []
@@ -147,7 +147,6 @@ class DataManager:
     def diverse_fewshot_triple_finder(self, test_triple):
         test_head, relation, test_tail = test_triple
         head_tail_pairs = self.relation2headtail_dict[relation]
-        random.shuffle(head_tail_pairs)
         
         if len(head_tail_pairs) <= self.max_ontology_triples:
             return [[head, relation, tail] for head, tail in head_tail_pairs]
@@ -243,8 +242,8 @@ class DataManager:
                     negative_samples.append((head, relation, new_tail))
                     break
                 
+        # # 破坏relation
         # candidate_relations = {triple[1] for triple in self.path_set} - {relation}
-        # 破坏relation
         # for _ in range(count):
         #     while True:
         #         new_relation = random.choice(list(candidate_relations))

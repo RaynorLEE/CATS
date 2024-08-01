@@ -1,2 +1,0 @@
-CUDA_VISIBLE_DEVICES=7 python prediction.py --setting transductive --dataset NELL-995-subset --train_size 1000
-CUDA_VISIBLE_DEVICES=7 python prediction.py --setting transductive --dataset NELL-995-subset --train_size 2000

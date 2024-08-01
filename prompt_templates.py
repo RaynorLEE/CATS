@@ -1,4 +1,3 @@
-# 0.907 0.785 0.5024 0.6313
 ONTOLOGY_REASON_PROMPT = """Please determine whether the entities in the input triples are consistent in entity type with a set of known triples in the knowledge graph provided.
 A set of known triples are:
 {fewshot_triples}
