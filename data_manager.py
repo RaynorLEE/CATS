@@ -7,12 +7,13 @@ from sentence_transformers import SentenceTransformer
 from prompt_templates import ONTOLOGY_REASON_PROMPT, PATH_REASON_PROMPT, EXPLAINING_PROMPT
 
 class DataManager:
-    def __init__(self, dataset="FB15k-237-subset", setting="inductive", train_size="full", model_name="Qwen2-7B-Instruct", version=""):
+    def __init__(self, dataset="FB15k-237-subset", setting="inductive", train_size="full", model_name="Qwen2-7B-Instruct", llm_type="sft", version=""):
         self.dataset = dataset
+        self.model_name = model_name
         self.dataset_name = dataset.split("-")[0]
         self.dataset_path = f"datasets/{dataset}" + ("-inductive" if setting=="inductive" else "")
         self.train_size = train_size
-        self.model_path = f"/home/yangcehao/Qwen2-7B-Instruct-{self.dataset_name}-{train_size}{version}"
+        self.model_path = f"/home/yangcehao/{self.model_name}-{self.dataset_name}-{train_size}{version}" if llm_type == "sft" else f"/home/yangcehao/{self.model_name}"
         
         self.test_batch_size = 50                                    # 测试集中每50个sample为一个batch，并计算MRR和Hits@1
         self.max_ontology_triples = 5                                # Ontology Reasoning阶段最多使用5个fewshot triples
@@ -242,14 +243,14 @@ class DataManager:
                     negative_samples.append((head, relation, new_tail))
                     break
                 
-        # # 破坏relation
-        # candidate_relations = {triple[1] for triple in self.path_set} - {relation}
-        # for _ in range(count):
-        #     while True:
-        #         new_relation = random.choice(list(candidate_relations))
-        #         if (head, new_relation, tail) not in seen_triples:
-        #             seen_triples.add((head, new_relation, tail))
-        #             negative_samples.append((head, new_relation, tail))
-        #             break
+        # 破坏relation
+        candidate_relations = {triple[1] for triple in self.path_set} - {relation}
+        for _ in range(count):
+            while True:
+                new_relation = random.choice(list(candidate_relations))
+                if (head, new_relation, tail) not in seen_triples:
+                    seen_triples.add((head, new_relation, tail))
+                    negative_samples.append((head, new_relation, tail))
+                    break
         
         return negative_samples

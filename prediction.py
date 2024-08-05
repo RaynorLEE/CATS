@@ -15,6 +15,7 @@ def cal_Y_prob(model, tokenizer, generation_config, prompt_list):
 
     generated_output = model.generate(
         input_ids=inputs.input_ids,
+        pad_token_id=tokenizer.eos_token_id,
         return_dict_in_generate=True,
         output_scores=True,
         **generation_config
@@ -35,15 +36,18 @@ def main():
     parser.add_argument("--dataset", type=str, choices=["FB15k-237-subset", "NELL-995-subset", "WN18RR-subset"], default="FB15k-237-subset", help="Name of the dataset")
     parser.add_argument("--setting", type=str, choices=["inductive", "transductive"], default="inductive", help="Inductive or Transductive setting")
     parser.add_argument("--train_size", type=str, choices=["full", "1000", "2000"], default="full", help="Size of the training data")
+    parser.add_argument("--model_name", type=str, choices=["Qwen2-7B-Instruct", "Meta-Llama-3-8B-Instruct"], default="Qwen2-7B-Instruct")
+    parser.add_argument("--llm_type", type=str, choices=["sft", "base"], default="sft")
     parser.add_argument("--version", type=str, default="")
+
     args = parser.parse_args()
 
-    log_dir = f"logs{args.version}"
+    log_dir = f"logs{args.version}_{args.model_name}_{args.llm_type}"
     os.makedirs(log_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%m%d%H%M")
     log_file = os.path.join(log_dir, f"log_{args.dataset}_{args.setting}_{args.train_size}_{timestamp}.txt")
 
-    data_manager = DataManager(dataset=args.dataset, setting=args.setting, train_size=args.train_size, version=args.version)
+    data_manager = DataManager(dataset=args.dataset, setting=args.setting, train_size=args.train_size, model_name=args.model_name, llm_type=args.llm_type, version=args.version)
     test_batches = data_manager.get_test_batches()
 
     model = AutoModelForCausalLM.from_pretrained(data_manager.model_path, torch_dtype="auto", device_map="auto")
