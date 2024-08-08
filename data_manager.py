@@ -4,7 +4,7 @@ import random
 import numpy as np
 from collections import defaultdict, deque
 from sentence_transformers import SentenceTransformer
-from prompt_templates import ONTOLOGY_REASON_PROMPT, PATH_REASON_PROMPT, EXPLAINING_PROMPT
+from prompt_templates import TYPE_REASON_PROMPT, SUBGRAPH_REASON_PROMPT, NEIGHBOR_REASON_PROMPT, CLOSE_PATH_REASON_PROMPT, EXPLAINING_PROMPT, BASE_REASON_PROMPT
 
 class DataManager:
     def __init__(self, dataset="FB15k-237-subset", setting="inductive", train_size="full", model_name="Qwen2-7B-Instruct", llm_type="sft", version=""):
@@ -128,19 +128,43 @@ class DataManager:
         elif self.dataset == "NELL-995-subset":
             return f"('{self.entity2text[head]}' {self.relation2text[relation]} '{self.entity2text[tail]}')"
     
-    def build_ontology_prompt(self, triple):
+    def build_type_prompt(self, triple):
         fewshot_triples = self.diverse_fewshot_triple_finder(triple)
         fewshot_triples_sentence = '\n'.join(self.triple_to_sentence(triple) for triple in fewshot_triples)
-        return ONTOLOGY_REASON_PROMPT.format(fewshot_triples=fewshot_triples_sentence, test_triple=self.triple_to_sentence(triple))
+        return TYPE_REASON_PROMPT.format(fewshot_triples=fewshot_triples_sentence, test_triple=self.triple_to_sentence(triple))
 
-    def build_path_prompt(self, triple):
+    def build_subgraph_prompt(self, triple):
         neighbor_triples = self.neighbor_triple_finder(triple)
         close_paths = self.close_path_finder(triple)
         reasoning_paths = "\n".join(
             " -> ".join(self.triple_to_sentence(triple) for triple in path)
             for path in close_paths
         )
-        return PATH_REASON_PROMPT.format(neighbor_triples="\n".join(neighbor_triples), reasoning_paths=reasoning_paths, test_triple=self.triple_to_sentence(triple))
+        return SUBGRAPH_REASON_PROMPT.format(neighbor_triples="\n".join(neighbor_triples), reasoning_paths=reasoning_paths, test_triple=self.triple_to_sentence(triple))
+    
+    def build_neighbor_prompt(self, triple):
+        neighbor_triples = self.neighbor_triple_finder(triple)
+        return NEIGHBOR_REASON_PROMPT.format(neighbor_triples="\n".join(neighbor_triples), test_triple=self.triple_to_sentence(triple))
+    
+    def build_close_path_prompt(self, triple):
+        close_paths = self.close_path_finder(triple)
+        reasoning_paths = "\n".join(
+            " -> ".join(self.triple_to_sentence(triple) for triple in path)
+            for path in close_paths
+        )
+        return CLOSE_PATH_REASON_PROMPT.format(reasoning_paths=reasoning_paths, test_triple=self.triple_to_sentence(triple))
+    
+    def build_none_prompt(self, triple):
+        return BASE_REASON_PROMPT.format(test_triple=self.triple_to_sentence(triple))
+    
+    def build_explain_prompt(self, triple):
+        neighbor_triples = self.neighbor_triple_finder(triple)
+        close_paths = self.close_path_finder(triple)
+        reasoning_paths = "\n".join(
+            " -> ".join(self.triple_to_sentence(triple) for triple in path)
+            for path in close_paths
+        )
+        return EXPLAINING_PROMPT.format(known_triples="\n".join(neighbor_triples), reasoning_paths=reasoning_paths, test_triple=self.triple_to_sentence(triple))
     
     def get_test_batches(self):
         return [self.test_set[i:i + self.test_batch_size] for i in range(0, len(self.test_set), self.test_batch_size)]
@@ -243,14 +267,14 @@ class DataManager:
                     negative_samples.append((head, relation, new_tail))
                     break
                 
-        # 破坏relation
-        candidate_relations = {triple[1] for triple in self.path_set} - {relation}
-        for _ in range(count):
-            while True:
-                new_relation = random.choice(list(candidate_relations))
-                if (head, new_relation, tail) not in seen_triples:
-                    seen_triples.add((head, new_relation, tail))
-                    negative_samples.append((head, new_relation, tail))
-                    break
+        # # 破坏relation
+        # candidate_relations = {triple[1] for triple in self.path_set} - {relation}
+        # for _ in range(count):
+        #     while True:
+        #         new_relation = random.choice(list(candidate_relations))
+        #         if (head, new_relation, tail) not in seen_triples:
+        #             seen_triples.add((head, new_relation, tail))
+        #             negative_samples.append((head, new_relation, tail))
+        #             break
         
         return negative_samples

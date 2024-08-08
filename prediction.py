@@ -5,7 +5,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from data_manager import DataManager
 from datetime import datetime
 
-def cal_Y_prob(model, tokenizer, generation_config, prompt_list):
+def cal_Y_prob(model:AutoModelForCausalLM, tokenizer:AutoTokenizer, generation_config, prompt_list):
     messages_batch = [
         [{"role": "user", "content": prompt}]
         for prompt in prompt_list
@@ -16,6 +16,7 @@ def cal_Y_prob(model, tokenizer, generation_config, prompt_list):
     generated_output = model.generate(
         input_ids=inputs.input_ids,
         pad_token_id=tokenizer.eos_token_id,
+        eos_token_id=tokenizer.eos_token_id,
         return_dict_in_generate=True,
         output_scores=True,
         **generation_config
@@ -36,13 +37,15 @@ def main():
     parser.add_argument("--dataset", type=str, choices=["FB15k-237-subset", "NELL-995-subset", "WN18RR-subset"], default="FB15k-237-subset", help="Name of the dataset")
     parser.add_argument("--setting", type=str, choices=["inductive", "transductive"], default="inductive", help="Inductive or Transductive setting")
     parser.add_argument("--train_size", type=str, choices=["full", "1000", "2000"], default="full", help="Size of the training data")
-    parser.add_argument("--model_name", type=str, choices=["Qwen2-7B-Instruct", "Meta-Llama-3-8B-Instruct"], default="Qwen2-7B-Instruct")
+    parser.add_argument("--model_name", type=str, choices=["Qwen2-7B-Instruct", "Meta-Llama-3-8B-Instruct", "Qwen1.5-7B-Chat", "Llama-2-7b-chat-hf"], default="Qwen2-7B-Instruct")
     parser.add_argument("--llm_type", type=str, choices=["sft", "base"], default="sft")
+    parser.add_argument("--prompt_type", type=str, choices=["REX", "none"], default="REX")
+    parser.add_argument("--subgraph_type", type=str, choices=["neighbor-only", "path-only", "combine"], default="combine")
     parser.add_argument("--version", type=str, default="")
 
     args = parser.parse_args()
 
-    log_dir = f"logs{args.version}_{args.model_name}_{args.llm_type}"
+    log_dir = f"logs{args.version}_{args.model_name}_{args.llm_type}_{args.prompt_type}_{args.subgraph_type}"
     os.makedirs(log_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%m%d%H%M")
     log_file = os.path.join(log_dir, f"log_{args.dataset}_{args.setting}_{args.train_size}_{timestamp}.txt")
@@ -60,11 +63,6 @@ def main():
         max_new_tokens=1,
     )
 
-    hits_result_ontology = []
-    hits_result_path = []
-    hits_result_average_ensemble = []
-    hits_result_weighted_ensemble = []
-    hits_result_ontology_filtered_path = []
     llm_batch_size = 8
     sample_counter = 0
 
@@ -76,88 +74,132 @@ def main():
         log.write(f"{label} MRR: {mrr}\n")
 
     with open(log_file, 'w') as log:
-        log.write(f"Using model: {data_manager.model_path}\n")
-        for idx, batch in enumerate(tqdm(test_batches, desc="Processing test batches")):
-            ontology_prompts = [data_manager.build_ontology_prompt(test_triple) for test_triple in batch]
-            path_prompts = [data_manager.build_path_prompt(test_triple) for test_triple in batch]
-
-            ontology_probs = []
-            for i in range(0, len(ontology_prompts), llm_batch_size):
-                batch_prompts = ontology_prompts[i:i + llm_batch_size]
-                ontology_probs.extend(cal_Y_prob(model, tokenizer, generation_config, batch_prompts))
+        if args.prompt_type == "none":
+            hits_result_none = []
+            log.write(f"Using model: {data_manager.model_path}\n")
             
-            for i, (prompt, prob) in enumerate(zip(ontology_prompts, ontology_probs)):
-                log.write(f"Sample {sample_counter} Ontology Prompt: {prompt}")
-                log.write(f"Sample {sample_counter} Ontology 'Y' token Probability: {prob}\n")
+            for idx, batch in enumerate(tqdm(test_batches, desc="Processing test batches")):
+                none_prompts = [data_manager.build_none_prompt(test_triple) for test_triple in batch]
+                none_probs = []
+                for i in range(0, len(none_prompts), llm_batch_size):
+                    batch_prompts = none_prompts[i:i + llm_batch_size]
+                    none_probs.extend(cal_Y_prob(model, tokenizer, generation_config, batch_prompts))
+                for i, (prompt, prob) in enumerate(zip(none_prompts, none_probs)):
+                    log.write(f"Sample {sample_counter} none Prompt: {prompt}\n")
+                    log.write(f"Sample {sample_counter} none 'Y' token Probability: {prob}\n")
+                    log.write("*"*50 + "\n")
+                    sample_counter += 1
+                none_prob_in_batch = list(zip(none_probs, range(len(none_probs))))
+                sorted_none_indices = sorted(range(len(none_prob_in_batch)), key=lambda i: none_prob_in_batch[i][0], reverse=True)
+                log.write(f"Sorted none indices: {sorted_none_indices}\n")
+                hits_position_base = sorted_none_indices.index(0) + 1 if 0 in sorted_none_indices else 0
+                hits_result_none.append(hits_position_base)
                 log.write("*"*50 + "\n")
-                sample_counter += 1
-                
-            ontology_prob_in_batch = list(zip(ontology_probs, range(len(ontology_probs))))
-            sorted_ontology_indices = sorted(range(len(ontology_prob_in_batch)), key=lambda i: ontology_prob_in_batch[i][0], reverse=True)
-            log.write(f"Sorted ontology indices: {sorted_ontology_indices}\n")
-            hits_position_ontology = sorted_ontology_indices.index(0) + 1 if 0 in sorted_ontology_indices else 0
-            hits_result_ontology.append(hits_position_ontology)
-
-            top_10_ontology_indices = sorted_ontology_indices[:10]
-            ontology_filtered_set = set(top_10_ontology_indices)
-            
-            path_probs = []
-            for i in range(0, len(path_prompts), llm_batch_size):
-                batch_prompts = path_prompts[i:i + llm_batch_size]
-                path_probs.extend(cal_Y_prob(model, tokenizer, generation_config, batch_prompts))
-
-            for i, (prompt, prob) in enumerate(zip(path_prompts, path_probs)):
-                log.write(f"Sample {sample_counter} Path Prompt: {prompt}\n")
-                log.write(f"Sample {sample_counter} Path 'Y' token Probability: {prob}\n")
-                log.write("*"*50 + "\n")
-                sample_counter += 1
-
-            path_prob_in_batch = list(zip(path_probs, range(len(path_probs))))
-            sorted_path_indices = sorted(range(len(path_prob_in_batch)), key=lambda i: path_prob_in_batch[i][0], reverse=True)
-            log.write(f"Sorted path indices: {sorted_path_indices}\n")
-            hits_position_path = sorted_path_indices.index(0) + 1 if 0 in sorted_path_indices else 0
-            hits_result_path.append(hits_position_path)
-
-            # Ensemble ontology reasoning and path reasoning
-            combined_ranks = [sorted_ontology_indices.index(i) + sorted_path_indices.index(i) for i in range(len(sorted_ontology_indices))]
-            sorted_combined_indices = sorted(range(len(combined_ranks)), key=lambda i: combined_ranks[i])
-            hits_position_average_ensemble = sorted_combined_indices.index(0) + 1 if 0 in sorted_combined_indices else 0
-            hits_result_average_ensemble.append(hits_position_average_ensemble)
-            
-            # Weighted Ensemble
-            weighted_scores = [(1 / (sorted_ontology_indices.index(i) + 1) + 1 / (sorted_path_indices.index(i) + 1)) for i in range(len(sorted_ontology_indices))]
-            sorted_weighted_indices = sorted(range(len(weighted_scores)), key=lambda i: weighted_scores[i], reverse=True)
-            hits_position_weighted_ensemble = sorted_weighted_indices.index(0) + 1 if 0 in sorted_weighted_indices else 0
-            hits_result_weighted_ensemble.append(hits_position_weighted_ensemble)
-            
-            # Filter path results based on ontology_filtered_list
-            sorted_filtered_path_indices = [index for index in sorted_path_indices if index in ontology_filtered_set]
-            log.write(f"Sorted filtered path indices: {sorted_filtered_path_indices}\n")
-            hits_position_ontology_filtered_path = sorted_filtered_path_indices.index(0) + 1 if 0 in sorted_filtered_path_indices else 0
-            hits_result_ontology_filtered_path.append(hits_position_ontology_filtered_path)
-            log.write("*"*50 + "\n")
-            log.flush()
-            
-            if (idx + 1) % 100 == 0:
-                log.write(f"\nMetrics after processing {idx + 1} batches:\n")
-                log_results("Ontology", hits_result_ontology)
-                log_results("Path", hits_result_path)
-                log_results("Average Ensemble", hits_result_average_ensemble)
-                log_results("Weighted Ensemble", hits_result_weighted_ensemble)
-                log_results("Ontology Filtered Path", hits_result_ontology_filtered_path)
-                log.write("\n" + "="*50 + "\n")
                 log.flush()
+                
+                if (idx + 1) % 100 == 0:
+                    log.write(f"\nMetrics after processing {idx + 1} batches:\n")
+                    log_results("None", hits_result_none)
+                    log.write("\n" + "="*50 + "\n")
+                    log.flush()
+                    
+            log.write("Final Results:\n")
+            log_results("None", hits_result_none)
+            log.flush()
+                
+        elif args.prompt_type == "REX":
+            hits_result_type = []
+            hits_result_subgraph = []
+            hits_result_average_ensemble = []
+            hits_result_weighted_ensemble = []
+            hits_result_type_filtered_subgraph = []
+            log.write(f"Using model: {data_manager.model_path}\n")
+            
+            for idx, batch in enumerate(tqdm(test_batches, desc="Processing test batches")):
+                type_prompts = [data_manager.build_type_prompt(test_triple) for test_triple in batch]
+                if args.subgraph_type == "combine":
+                    subgraph_prompts = [data_manager.build_subgraph_prompt(test_triple) for test_triple in batch]
+                elif args.subgraph_type == "neighbor-only":
+                    subgraph_prompts = [data_manager.build_neighbor_prompt(test_triple) for test_triple in batch]
+                elif args.subgraph_type == "path-only":
+                    subgraph_prompts = [data_manager.build_close_path_prompt(test_triple) for test_triple in batch]
+                type_probs = []
+                for i in range(0, len(type_prompts), llm_batch_size):
+                    batch_prompts = type_prompts[i:i + llm_batch_size]
+                    type_probs.extend(cal_Y_prob(model, tokenizer, generation_config, batch_prompts))
+                
+                for i, (prompt, prob) in enumerate(zip(type_prompts, type_probs)):
+                    log.write(f"Sample {sample_counter} type Prompt: {prompt}")
+                    log.write(f"Sample {sample_counter} type 'Y' token Probability: {prob}\n")
+                    log.write("*"*50 + "\n")
+                    sample_counter += 1
+                    
+                type_prob_in_batch = list(zip(type_probs, range(len(type_probs))))
+                sorted_type_indices = sorted(range(len(type_prob_in_batch)), key=lambda i: type_prob_in_batch[i][0], reverse=True)
+                log.write(f"Sorted type indices: {sorted_type_indices}\n")
+                hits_position_type = sorted_type_indices.index(0) + 1 if 0 in sorted_type_indices else 0
+                hits_result_type.append(hits_position_type)
 
-        log.write("Final Results:\n")
-        log.write("Propotion of ontology reasoning top 5: {}\n".format(sum(1 for hits in hits_result_ontology if hits <= 5) / len(hits_result_ontology)))
-        log.write("Propotion of ontology reasoning top 10: {}\n".format(sum(1 for hits in hits_result_ontology if hits <= 10) / len(hits_result_ontology)))
-        
-        log_results("Ontology", hits_result_ontology)
-        log_results("Path", hits_result_path)
-        log_results("Average Ensemble", hits_result_average_ensemble)
-        log_results("Weighted Ensemble", hits_result_weighted_ensemble)
-        log_results("Ontology Filtered Path", hits_result_ontology_filtered_path)
-        log.flush()
+                top_10_type_indices = sorted_type_indices[:10]
+                type_filtered_set = set(top_10_type_indices)
+                
+                subgraph_probs = []
+                for i in range(0, len(subgraph_prompts), llm_batch_size):
+                    batch_prompts = subgraph_prompts[i:i + llm_batch_size]
+                    subgraph_probs.extend(cal_Y_prob(model, tokenizer, generation_config, batch_prompts))
+
+                for i, (prompt, prob) in enumerate(zip(subgraph_prompts, subgraph_probs)):
+                    log.write(f"Sample {sample_counter} Subgraph Prompt: {prompt}\n")
+                    log.write(f"Sample {sample_counter} Subgraph 'Y' token Probability: {prob}\n")
+                    log.write("*"*50 + "\n")
+                    sample_counter += 1
+
+                subgraph_prob_in_batch = list(zip(subgraph_probs, range(len(subgraph_probs))))
+                sorted_subgraph_indices = sorted(range(len(subgraph_prob_in_batch)), key=lambda i: subgraph_prob_in_batch[i][0], reverse=True)
+                log.write(f"Sorted Subgraph indices: {sorted_subgraph_indices}\n")
+                hits_position_subgraph = sorted_subgraph_indices.index(0) + 1 if 0 in sorted_subgraph_indices else 0
+                hits_result_subgraph.append(hits_position_subgraph)
+
+                # Ensemble type reasoning and subgraph reasoning
+                combined_ranks = [sorted_type_indices.index(i) + sorted_subgraph_indices.index(i) for i in range(len(sorted_type_indices))]
+                sorted_combined_indices = sorted(range(len(combined_ranks)), key=lambda i: combined_ranks[i])
+                hits_position_average_ensemble = sorted_combined_indices.index(0) + 1 if 0 in sorted_combined_indices else 0
+                hits_result_average_ensemble.append(hits_position_average_ensemble)
+                
+                # Weighted Ensemble
+                weighted_scores = [(1 / (sorted_type_indices.index(i) + 1) + 1 / (sorted_subgraph_indices.index(i) + 1)) for i in range(len(sorted_type_indices))]
+                sorted_weighted_indices = sorted(range(len(weighted_scores)), key=lambda i: weighted_scores[i], reverse=True)
+                hits_position_weighted_ensemble = sorted_weighted_indices.index(0) + 1 if 0 in sorted_weighted_indices else 0
+                hits_result_weighted_ensemble.append(hits_position_weighted_ensemble)
+                
+                # Filter subgraph results based on type_filtered_list
+                sorted_filtered_subgraph_indices = [index for index in sorted_subgraph_indices if index in type_filtered_set]
+                log.write(f"Sorted filtered subgraph indices: {sorted_filtered_subgraph_indices}\n")
+                hits_position_type_filtered_subgraph = sorted_filtered_subgraph_indices.index(0) + 1 if 0 in sorted_filtered_subgraph_indices else 0
+                hits_result_type_filtered_subgraph.append(hits_position_type_filtered_subgraph)
+                log.write("*"*50 + "\n")
+                log.flush()
+                
+                if (idx + 1) % 100 == 0:
+                    log.write(f"\nMetrics after processing {idx + 1} batches:\n")
+                    log_results("Type", hits_result_type)
+                    log_results("Subgraph", hits_result_subgraph)
+                    log_results("Average Ensemble", hits_result_average_ensemble)
+                    log_results("Weighted Ensemble", hits_result_weighted_ensemble)
+                    log_results("Type Filtered Subgraph", hits_result_type_filtered_subgraph)
+                    log.write("\n" + "="*50 + "\n")
+                    log.flush()
+
+            log.write("Final Results:\n")
+            log.write("Propotion of type reasoning top 5: {}\n".format(sum(1 for hits in hits_result_type if hits <= 5) / len(hits_result_type)))
+            log.write("Propotion of type reasoning top 10: {}\n".format(sum(1 for hits in hits_result_type if hits <= 10) / len(hits_result_type)))
+            
+            log_results("Type", hits_result_type)
+            log_results("Subgraph", hits_result_subgraph)
+            log_results("Average Ensemble", hits_result_average_ensemble)
+            log_results("Weighted Ensemble", hits_result_weighted_ensemble)
+            log_results("Type Filtered Subgraph", hits_result_type_filtered_subgraph)
+            log.flush()
 
 if __name__ == "__main__":
     main()
