@@ -165,7 +165,5 @@ data/
 datasets/
 instructions/
 instructions*
-none_instructions/
-none_instructions*
 logs/
 logs*
