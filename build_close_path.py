@@ -5,10 +5,11 @@ from data_manager import DataManager
 from tqdm import tqdm
 import argparse
 
-def process_dataset(dataset, setting, train_size):
+def process_dataset(dataset, setting, train_size, max_path_hops):
     data_manager = DataManager(dataset=dataset, setting=setting, train_size=train_size)
+    data_manager.max_path_hops = max_path_hops
 
-    paths_dir = f"{data_manager.dataset_path}/paths_v2"
+    paths_dir = f"{data_manager.dataset_path}/paths_{max_path_hops}hop"
     os.makedirs(paths_dir, exist_ok=True)
 
     close_path_dict = {}
@@ -45,9 +46,10 @@ def main():
     parser.add_argument("--dataset", type=str, choices=["FB15k-237-subset", "NELL-995-subset", "WN18RR-subset"], default="FB15k-237-subset")
     parser.add_argument("--setting", type=str, choices=["inductive", "transductive"], default="inductive", help="Inductive or Transductive setting")
     parser.add_argument("--train_size", type=str, choices=["full", "1000", "2000"], default="full", help="Size of the training data")
+    parser.add_argument("--max_path_hops", type=int, default=3, help="Maximum number of hops in the path")
 
     args = parser.parse_args()
-    process_dataset(args.dataset, args.setting, args.train_size)
+    process_dataset(args.dataset, args.setting, args.train_size, args.max_path_hops)
 
 if __name__ == "__main__":
     main()

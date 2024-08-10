@@ -41,11 +41,12 @@ def main():
     parser.add_argument("--llm_type", type=str, choices=["sft", "base"], default="sft")
     parser.add_argument("--prompt_type", type=str, choices=["REX", "none"], default="REX")
     parser.add_argument("--subgraph_type", type=str, choices=["neighbor-only", "path-only", "combine"], default="combine")
+    parser.add_argument("--path_type", type=str, choices=["degree", "no-degree"], default="degree")
     parser.add_argument("--version", type=str, default="")
 
     args = parser.parse_args()
 
-    log_dir = f"logs{args.version}_{args.model_name}_{args.llm_type}_{args.prompt_type}_{args.subgraph_type}"
+    log_dir = f"logs{args.version}_{args.model_name}_{args.llm_type}_{args.prompt_type}_{args.subgraph_type}_{args.path_type}"
     os.makedirs(log_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%m%d%H%M")
     log_file = os.path.join(log_dir, f"log_{args.dataset}_{args.setting}_{args.train_size}_{timestamp}.txt")
@@ -63,7 +64,7 @@ def main():
         max_new_tokens=1,
     )
 
-    llm_batch_size = 8
+    llm_batch_size = 1
     sample_counter = 0
 
     def log_results(label, results):
@@ -122,7 +123,10 @@ def main():
                 elif args.subgraph_type == "neighbor-only":
                     subgraph_prompts = [data_manager.build_neighbor_prompt(test_triple) for test_triple in batch]
                 elif args.subgraph_type == "path-only":
-                    subgraph_prompts = [data_manager.build_close_path_prompt(test_triple) for test_triple in batch]
+                    if args.path_type == "degree":
+                        subgraph_prompts = [data_manager.build_close_path_prompt(test_triple) for test_triple in batch]
+                    elif args.path_type == "no-degree":
+                        subgraph_prompts = [data_manager.build_close_path_no_degree_prompt(test_triple) for test_triple in batch]
                 type_probs = []
                 for i in range(0, len(type_prompts), llm_batch_size):
                     batch_prompts = type_prompts[i:i + llm_batch_size]

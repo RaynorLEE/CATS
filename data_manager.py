@@ -16,7 +16,7 @@ class DataManager:
         self.model_path = f"/home/yangcehao/{self.model_name}-{self.dataset_name}-{train_size}{version}" if llm_type == "sft" else f"/home/yangcehao/{self.model_name}"
         
         self.test_batch_size = 50                                    # 测试集中每50个sample为一个batch，并计算MRR和Hits@1
-        self.max_ontology_triples = 5                                # Ontology Reasoning阶段最多使用5个fewshot triples
+        self.max_type_triples = 5                                    # Type Reasoning阶段最多使用5个fewshot triples
         self.max_reason_paths = 6                                    # Path Reasoning阶段最多使用6个path，其中neighbor_triples和close_paths都最多六个
         self.max_path_hops = 3                                       # bfs搜索close_path的最大深度
         
@@ -113,6 +113,16 @@ class DataManager:
             return top_paths
 
         return []
+    
+    def close_path_finder_no_degree(self, triple):
+        head, relation, tail = triple
+        head_tail = f"{head}-{tail}"
+        close_paths = self.close_path_dict[head_tail]
+
+        if close_paths:
+            return close_paths[:self.max_reason_paths]
+
+        return []
 
     def linearize_triple(self, triple):
         return f"({self.entity2text[triple[0]]}, {self.relation2text[triple[1]]}, {self.entity2text[triple[2]]})"
@@ -154,17 +164,16 @@ class DataManager:
         )
         return CLOSE_PATH_REASON_PROMPT.format(reasoning_paths=reasoning_paths, test_triple=self.triple_to_sentence(triple))
     
-    def build_none_prompt(self, triple):
-        return BASE_REASON_PROMPT.format(test_triple=self.triple_to_sentence(triple))
-    
-    def build_explain_prompt(self, triple):
-        neighbor_triples = self.neighbor_triple_finder(triple)
-        close_paths = self.close_path_finder(triple)
+    def build_close_path_no_degree_prompt(self, triple):
+        close_paths = self.close_path_finder_no_degree(triple)
         reasoning_paths = "\n".join(
             " -> ".join(self.triple_to_sentence(triple) for triple in path)
             for path in close_paths
         )
-        return EXPLAINING_PROMPT.format(known_triples="\n".join(neighbor_triples), reasoning_paths=reasoning_paths, test_triple=self.triple_to_sentence(triple))
+        return CLOSE_PATH_REASON_PROMPT.format(reasoning_paths=reasoning_paths, test_triple=self.triple_to_sentence(triple))
+    
+    def build_none_prompt(self, triple):
+        return BASE_REASON_PROMPT.format(test_triple=self.triple_to_sentence(triple))
     
     def get_test_batches(self):
         return [self.test_set[i:i + self.test_batch_size] for i in range(0, len(self.test_set), self.test_batch_size)]
@@ -173,7 +182,7 @@ class DataManager:
         test_head, relation, test_tail = test_triple
         head_tail_pairs = self.relation2headtail_dict[relation]
         
-        if len(head_tail_pairs) <= self.max_ontology_triples:
+        if len(head_tail_pairs) <= self.max_type_triples:
             return [[head, relation, tail] for head, tail in head_tail_pairs]
         
         used_heads = {test_head, test_tail}
@@ -187,12 +196,12 @@ class DataManager:
                 used_heads.add(head)
                 used_tails.add(tail)
                 used_pairs.add((head, tail))
-                if len(selected_triples) == self.max_ontology_triples:
+                if len(selected_triples) == self.max_type_triples:
                     return selected_triples
          
         for head, tail in head_tail_pairs:
             if (head, tail) not in used_pairs:
-                if len(selected_triples) < self.max_ontology_triples:
+                if len(selected_triples) < self.max_type_triples:
                     selected_triples.append([head, relation, tail])
                     used_heads.add(head)
                     used_tails.add(tail)

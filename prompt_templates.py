@@ -37,12 +37,12 @@ BASE_REASON_PROMPT = """Please determine whether the input triple from a knowled
 Please return 'Y' if it is correct, otherwise return 'N'. Do not say anything else except your determination.
 """
 
-EXPLAINING_PROMPT = """Please explain why the test triple can be reliably inferred based on the provided reasoning evidence from the knowledge graph. If it cannot be directly inferred from the evidence, provide a detailed justification for its correctness, including potential reasons. 
+EXPLAINING_PROMPT = """Please determine whether the relation in the input can be reliably inferred between the head and tail entities, based on a set of neighbor triples and reasoning paths from the knowledge graph.
 A set of neighbor triples from the knowledge graph are:
-{known_triples}
+{neighbor_triples}
 A set of reasoning paths from the knowledge graph are:
 {reasoning_paths}
-The test triple to be explained is:
+The relation to be inferred is:
 {test_triple}
-Please provide a detailed explanation justifying why.
+Please return 'Y' if there is sufficient evidence from the knowledge graph to infer the relation, otherwise return 'N'. Please provide a brief explanation for your determination.
 """
