@@ -39,7 +39,7 @@ def main():
     parser.add_argument("--train_size", type=str, choices=["full", "1000", "2000"], default="full", help="Size of the training data")
     parser.add_argument("--model_name", type=str, choices=["Qwen2-7B-Instruct", "Meta-Llama-3-8B-Instruct", "Qwen1.5-7B-Chat", "Llama-2-7b-chat-hf"], default="Qwen2-7B-Instruct")
     parser.add_argument("--llm_type", type=str, choices=["sft", "base"], default="sft")
-    parser.add_argument("--prompt_type", type=str, choices=["REX", "none"], default="REX")
+    parser.add_argument("--prompt_type", type=str, choices=["REX", "none", "REX-all"], default="REX")
     parser.add_argument("--subgraph_type", type=str, choices=["neighbor-only", "path-only", "combine"], default="combine")
     parser.add_argument("--path_type", type=str, choices=["degree", "no-degree"], default="degree")
     parser.add_argument("--version", type=str, default="")
@@ -107,7 +107,40 @@ def main():
             log.write("Final Results:\n")
             log_results("None", hits_result_none)
             log.flush()
+        
+        elif args.prompt_type == "REX-all":
+            hits_result_all = []
+            log.write(f"Using model: {data_manager.model_path}\n")
+            
+            for idx, batch in enumerate(tqdm(test_batches, desc="Processing test batches")):
+                all_prompts = [data_manager.build_all_prompt(test_triple) for test_triple in batch]
+                all_probs = []
+                for i in range(0, len(all_prompts), llm_batch_size):
+                    batch_prompts = all_prompts[i:i + llm_batch_size]
+                    all_probs.extend(cal_Y_prob(model, tokenizer, generation_config, batch_prompts))
+                for i, (prompt, prob) in enumerate(zip(all_prompts, all_probs)):
+                    log.write(f"Sample {sample_counter} all Prompt: {prompt}\n")
+                    log.write(f"Sample {sample_counter} all 'Y' token Probability: {prob}\n")
+                    log.write("*"*50 + "\n")
+                    sample_counter += 1
+                all_prob_in_batch = list(zip(all_probs, range(len(all_probs))))
+                sorted_all_indices = sorted(range(len(all_prob_in_batch)), key=lambda i: all_prob_in_batch[i][0], reverse=True)
+                log.write(f"Sorted all indices: {sorted_all_indices}\n")
+                hits_position_all = sorted_all_indices.index(0) + 1 if 0 in sorted_all_indices else 0
+                hits_result_all.append(hits_position_all)
+                log.write("*"*50 + "\n")
+                log.flush()
                 
+                if (idx + 1) % 100 == 0:
+                    log.write(f"\nMetrics after processing {idx + 1} batches:\n")
+                    log_results("All", hits_result_all)
+                    log.write("\n" + "="*50 + "\n")
+                    log.flush()
+                    
+            log.write("Final Results:\n")
+            log_results("All", hits_result_all)
+            log.flush()
+            
         elif args.prompt_type == "REX":
             hits_result_type = []
             hits_result_subgraph = []

@@ -4,7 +4,7 @@ import random
 import numpy as np
 from collections import defaultdict, deque
 from sentence_transformers import SentenceTransformer
-from prompt_templates import TYPE_REASON_PROMPT, SUBGRAPH_REASON_PROMPT, NEIGHBOR_REASON_PROMPT, CLOSE_PATH_REASON_PROMPT, EXPLAINING_PROMPT, BASE_REASON_PROMPT
+from prompt_templates import TYPE_REASON_PROMPT, SUBGRAPH_REASON_PROMPT, NEIGHBOR_REASON_PROMPT, CLOSE_PATH_REASON_PROMPT, EXPLAINING_PROMPT, BASE_REASON_PROMPT, ALL_REASON_PROMPT
 
 class DataManager:
     def __init__(self, dataset="FB15k-237-subset", setting="inductive", train_size="full", model_name="Qwen2-7B-Instruct", llm_type="sft", version=""):
@@ -174,6 +174,17 @@ class DataManager:
     
     def build_none_prompt(self, triple):
         return BASE_REASON_PROMPT.format(test_triple=self.triple_to_sentence(triple))
+    
+    def build_all_prompt(self, triple):
+        fewshot_triples = self.diverse_fewshot_triple_finder(triple)
+        neighbor_triples = self.neighbor_triple_finder(triple)
+        close_paths = self.close_path_finder(triple)
+        fewshot_triples_sentence = '\n'.join(self.triple_to_sentence(triple) for triple in fewshot_triples)
+        reasoning_paths = "\n".join(
+            " -> ".join(self.triple_to_sentence(triple) for triple in path)
+            for path in close_paths
+        )
+        return ALL_REASON_PROMPT.format(fewshot_triples=fewshot_triples_sentence, neighbor_triples="\n".join(neighbor_triples), reasoning_paths=reasoning_paths, test_triple=self.triple_to_sentence(triple))
     
     def get_test_batches(self):
         return [self.test_set[i:i + self.test_batch_size] for i in range(0, len(self.test_set), self.test_batch_size)]
