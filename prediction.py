@@ -1,5 +1,6 @@
 import os
 import argparse
+import time
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from data_manager import DataManager
@@ -37,21 +38,20 @@ def main():
     parser.add_argument("--dataset", type=str, choices=["FB15k-237-subset", "NELL-995-subset", "WN18RR-subset"], default="FB15k-237-subset", help="Name of the dataset")
     parser.add_argument("--setting", type=str, choices=["inductive", "transductive"], default="inductive", help="Inductive or Transductive setting")
     parser.add_argument("--train_size", type=str, choices=["full", "1000", "2000"], default="full", help="Size of the training data")
-    parser.add_argument("--model_name", type=str, choices=["Qwen2-7B-Instruct", "Meta-Llama-3-8B-Instruct", "Qwen1.5-7B-Chat", "Llama-2-7b-chat-hf"], default="Qwen2-7B-Instruct")
+    parser.add_argument("--model_name", type=str, choices=["Qwen2-7B-Instruct", "Meta-Llama-3-8B-Instruct", "Qwen2-1.5B-Instruct"], default="Qwen2-7B-Instruct")
     parser.add_argument("--llm_type", type=str, choices=["sft", "base"], default="sft")
     parser.add_argument("--prompt_type", type=str, choices=["REX", "none", "REX-all"], default="REX")
     parser.add_argument("--subgraph_type", type=str, choices=["neighbor-only", "path-only", "combine"], default="combine")
     parser.add_argument("--path_type", type=str, choices=["degree", "no-degree"], default="degree")
-    parser.add_argument("--version", type=str, default="")
 
     args = parser.parse_args()
 
-    log_dir = f"logs{args.version}_{args.model_name}_{args.llm_type}_{args.prompt_type}_{args.subgraph_type}_{args.path_type}"
+    log_dir = f"logs_{args.model_name}_{args.llm_type}_{args.prompt_type}_{args.subgraph_type}_{args.path_type}"
     os.makedirs(log_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%m%d%H%M")
     log_file = os.path.join(log_dir, f"log_{args.dataset}_{args.setting}_{args.train_size}_{timestamp}.txt")
 
-    data_manager = DataManager(dataset=args.dataset, setting=args.setting, train_size=args.train_size, model_name=args.model_name, llm_type=args.llm_type, version=args.version)
+    data_manager = DataManager(dataset=args.dataset, setting=args.setting, train_size=args.train_size, model_name=args.model_name, llm_type=args.llm_type)
     test_batches = data_manager.get_test_batches()
 
     model = AutoModelForCausalLM.from_pretrained(data_manager.model_path, torch_dtype="auto", device_map="auto")
@@ -145,8 +145,10 @@ def main():
             hits_result_type = []
             hits_result_subgraph = []
             hits_result_average_ensemble = []
-            hits_result_weighted_ensemble = []
-            hits_result_type_filtered_subgraph = []
+            TAR_infer_times = []
+            SR_infer_times = []
+            # hits_result_weighted_ensemble = []
+            # hits_result_type_filtered_subgraph = []
             log.write(f"Using model: {data_manager.model_path}\n")
             
             for idx, batch in enumerate(tqdm(test_batches, desc="Processing test batches")):
@@ -161,10 +163,16 @@ def main():
                     elif args.path_type == "no-degree":
                         subgraph_prompts = [data_manager.build_close_path_no_degree_prompt(test_triple) for test_triple in batch]
                 type_probs = []
+                batch_infer_times = 0
                 for i in range(0, len(type_prompts), llm_batch_size):
                     batch_prompts = type_prompts[i:i + llm_batch_size]
+                    start_time = time.time()
                     type_probs.extend(cal_Y_prob(model, tokenizer, generation_config, batch_prompts))
-                
+                    end_time = time.time()
+                    time_interval = end_time - start_time
+                    batch_infer_times += time_interval
+                    # log.write(f"Time for type reasoning inference: {time_interval}\n")
+                TAR_infer_times.append(batch_infer_times)
                 for i, (prompt, prob) in enumerate(zip(type_prompts, type_probs)):
                     log.write(f"Sample {sample_counter} type Prompt: {prompt}")
                     log.write(f"Sample {sample_counter} type 'Y' token Probability: {prob}\n")
@@ -181,9 +189,16 @@ def main():
                 type_filtered_set = set(top_10_type_indices)
                 
                 subgraph_probs = []
+                batch_infer_times = 0
                 for i in range(0, len(subgraph_prompts), llm_batch_size):
                     batch_prompts = subgraph_prompts[i:i + llm_batch_size]
+                    start_time = time.time()
                     subgraph_probs.extend(cal_Y_prob(model, tokenizer, generation_config, batch_prompts))
+                    end_time = time.time()
+                    time_interval = end_time - start_time
+                    batch_infer_times += time_interval
+                    # log.write(f"Time for subgraph reasoning inference: {time_interval}\n")
+                SR_infer_times.append(batch_infer_times)
 
                 for i, (prompt, prob) in enumerate(zip(subgraph_prompts, subgraph_probs)):
                     log.write(f"Sample {sample_counter} Subgraph Prompt: {prompt}\n")
@@ -203,17 +218,18 @@ def main():
                 hits_position_average_ensemble = sorted_combined_indices.index(0) + 1 if 0 in sorted_combined_indices else 0
                 hits_result_average_ensemble.append(hits_position_average_ensemble)
                 
-                # Weighted Ensemble
-                weighted_scores = [(1 / (sorted_type_indices.index(i) + 1) + 1 / (sorted_subgraph_indices.index(i) + 1)) for i in range(len(sorted_type_indices))]
-                sorted_weighted_indices = sorted(range(len(weighted_scores)), key=lambda i: weighted_scores[i], reverse=True)
-                hits_position_weighted_ensemble = sorted_weighted_indices.index(0) + 1 if 0 in sorted_weighted_indices else 0
-                hits_result_weighted_ensemble.append(hits_position_weighted_ensemble)
+                # # Weighted Ensemble
+                # weighted_scores = [(1 / (sorted_type_indices.index(i) + 1) + 1 / (sorted_subgraph_indices.index(i) + 1)) for i in range(len(sorted_type_indices))]
+                # sorted_weighted_indices = sorted(range(len(weighted_scores)), key=lambda i: weighted_scores[i], reverse=True)
+                # hits_position_weighted_ensemble = sorted_weighted_indices.index(0) + 1 if 0 in sorted_weighted_indices else 0
+                # hits_result_weighted_ensemble.append(hits_position_weighted_ensemble)
                 
-                # Filter subgraph results based on type_filtered_list
-                sorted_filtered_subgraph_indices = [index for index in sorted_subgraph_indices if index in type_filtered_set]
-                log.write(f"Sorted filtered subgraph indices: {sorted_filtered_subgraph_indices}\n")
-                hits_position_type_filtered_subgraph = sorted_filtered_subgraph_indices.index(0) + 1 if 0 in sorted_filtered_subgraph_indices else 0
-                hits_result_type_filtered_subgraph.append(hits_position_type_filtered_subgraph)
+                # # Filter subgraph results based on type_filtered_list
+                # sorted_filtered_subgraph_indices = [index for index in sorted_subgraph_indices if index in type_filtered_set]
+                # log.write(f"Sorted filtered subgraph indices: {sorted_filtered_subgraph_indices}\n")
+                # hits_position_type_filtered_subgraph = sorted_filtered_subgraph_indices.index(0) + 1 if 0 in sorted_filtered_subgraph_indices else 0
+                # hits_result_type_filtered_subgraph.append(hits_position_type_filtered_subgraph)
+                
                 log.write("*"*50 + "\n")
                 log.flush()
                 
@@ -222,8 +238,8 @@ def main():
                     log_results("Type", hits_result_type)
                     log_results("Subgraph", hits_result_subgraph)
                     log_results("Average Ensemble", hits_result_average_ensemble)
-                    log_results("Weighted Ensemble", hits_result_weighted_ensemble)
-                    log_results("Type Filtered Subgraph", hits_result_type_filtered_subgraph)
+                    # log_results("Weighted Ensemble", hits_result_weighted_ensemble)
+                    # log_results("Type Filtered Subgraph", hits_result_type_filtered_subgraph)
                     log.write("\n" + "="*50 + "\n")
                     log.flush()
 
@@ -234,8 +250,12 @@ def main():
             log_results("Type", hits_result_type)
             log_results("Subgraph", hits_result_subgraph)
             log_results("Average Ensemble", hits_result_average_ensemble)
-            log_results("Weighted Ensemble", hits_result_weighted_ensemble)
-            log_results("Type Filtered Subgraph", hits_result_type_filtered_subgraph)
+            # log_results("Weighted Ensemble", hits_result_weighted_ensemble)
+            # log_results("Type Filtered Subgraph", hits_result_type_filtered_subgraph)
+            
+            # Time cost
+            log.write("Average time for type reasoning inference: {}\n".format(sum(TAR_infer_times) / len(TAR_infer_times)))
+            log.write("Average time for subgraph reasoning inference: {}\n".format(sum(SR_infer_times) / len(SR_infer_times)))
             log.flush()
 
 if __name__ == "__main__":
