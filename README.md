@@ -1,1 +1,54 @@
-# hyper_indKGC
+# CATS: Context-aware Inductive Knowledge Graph Completion with Latent Type Constraints and Subgraph Reasoning
+
+This repository provides the official implementation of the paper *"Context-aware Inductive Knowledge Graph Completion with Latent Type Constraints and Subgraph Reasoning"* (AAAI 2025).
+
+![CATS](CATS.pdf)
+
+## Environment Setup
+
+To run the code, follow these steps:
+
+1. **Install dependencies:**
+   Create a virtual environment and install the required packages. You can refer to the `requirements.txt` from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/blob/main/requirements.txt).
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+   Additionally, install `sentence_transformers`:
+
+   ```bash
+   pip install sentence_transformers
+   ```
+
+## Dataset
+
+Download the full dataset and pre-built instructions from the following Google Drive link:
+
+- [Dataset & Instructions](https://drive.google.com/drive/folders/17C3BsllCWy_TK3B5WwCjxPQo2heuLJPz?usp=drive_link)
+
+Alternatively, you can manually build the dataset by following the instructions in `build_instruction.py`.
+
+## LLM Setup
+
+You need to download a large language model (LLM) from the following links:
+
+- [Qwen2-VL-7B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct)
+- [Meta-Llama-3-8B-Instruct](https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct)
+
+After downloading, update the `LLM_PATH` in the `data_manager.py` script to point to your local model path.
+
+## Inference
+
+To run inference, execute the following command:
+
+```bash
+python prediction.py
+```
+
+This will start the inference process using the provided model and dataset in zero-shot setting.
+
+
+## Intruction-tuning
+
+Please refer to the official document from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/.)
