@@ -40,7 +40,7 @@ def main():
     parser.add_argument("--train_size", type=str, choices=["full", "1000", "2000"], default="full", help="Size of the training data")
     parser.add_argument("--model_name", type=str, choices=["Qwen2-7B-Instruct", "Meta-Llama-3-8B-Instruct", "Qwen2-1.5B-Instruct"], default="Qwen2-7B-Instruct")
     parser.add_argument("--llm_type", type=str, choices=["sft", "base"], default="sft")
-    parser.add_argument("--prompt_type", type=str, choices=["REX", "none", "REX-all"], default="REX")
+    parser.add_argument("--prompt_type", type=str, choices=["CATS", "none", "CATS-all"], default="CATS")
     parser.add_argument("--subgraph_type", type=str, choices=["neighbor-only", "path-only", "combine"], default="combine")
     parser.add_argument("--path_type", type=str, choices=["degree", "no-degree"], default="degree")
 
@@ -108,7 +108,7 @@ def main():
             log_results("None", hits_result_none)
             log.flush()
         
-        elif args.prompt_type == "REX-all":
+        elif args.prompt_type == "CATS-all":
             hits_result_all = []
             log.write(f"Using model: {data_manager.model_path}\n")
             
@@ -141,7 +141,7 @@ def main():
             log_results("All", hits_result_all)
             log.flush()
             
-        elif args.prompt_type == "REX":
+        elif args.prompt_type == "CATS":
             hits_result_type = []
             hits_result_subgraph = []
             hits_result_average_ensemble = []

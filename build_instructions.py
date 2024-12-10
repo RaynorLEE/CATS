@@ -128,12 +128,12 @@ def main():
     parser.add_argument("--dataset", type=str, choices=["FB15k-237-subset", "NELL-995-subset", "WN18RR-subset"], default="FB15k-237-subset")
     parser.add_argument("--train_size", type=str, choices=["full", "1000", "2000"], default="full", help="Size of the training data")
     parser.add_argument("--neg_num", type=int, default=3, help="Number of negative samples")
-    parser.add_argument("--prompt_type", type=str, default="LTSC", choices=["LTSC", "none"])
+    parser.add_argument("--prompt_type", type=str, default="CATS", choices=["CATS", "none"])
     parser.add_argument("--subgraph_type", type=str, default="combine", choices=["neighbor-only", "path-only", "combine"])
     parser.add_argument("--version", type=str, default="")
 
     args = parser.parse_args()
-    if args.prompt_type == "LTSC":
+    if args.prompt_type == "CATS":
         build_instructions(args.dataset, args.train_size, args.subgraph_type, args.neg_num, args.version)
     elif args.prompt_type == "none":
         build_none_instructions(args.dataset, args.train_size, args.neg_num, args.version)
