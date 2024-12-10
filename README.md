@@ -2,7 +2,7 @@
 
 This repository provides the official implementation of the paper *"Context-aware Inductive Knowledge Graph Completion with Latent Type Constraints and Subgraph Reasoning"* (AAAI 2025).
 
-![CATS](CATS.pdf)
+![CATS](CATS.png)
 
 ## Environment Setup
 
