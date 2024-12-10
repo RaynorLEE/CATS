@@ -9,7 +9,7 @@ This repository provides the official implementation of the paper *"Context-awar
 To run the code, follow these steps:
 
 1. **Install dependencies:**
-   Create a virtual environment and install the required packages. You can refer to the `requirements.txt` from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/blob/main/requirements.txt).
+   Create a python environment and install the required packages. You can refer to the `requirements.txt` from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/blob/main/requirements.txt).
 
    ```bash
    pip install -r requirements.txt
@@ -23,15 +23,15 @@ To run the code, follow these steps:
 
 ## Dataset
 
-Download the full dataset and pre-built instructions from the following Google Drive link:
+Download the full dataset and pre-built instructions from the following link:
 
-- [Dataset & Instructions](https://drive.google.com/drive/folders/17C3BsllCWy_TK3B5WwCjxPQo2heuLJPz?usp=drive_link)
+- [Dataset &amp; Instructions](https://drive.google.com/drive/folders/17C3BsllCWy_TK3B5WwCjxPQo2heuLJPz?usp=drive_link)
 
-Alternatively, you can manually build the dataset by following the instructions in `build_instruction.py`.
+Alternatively, you can manually build the instruction set executing  `python build_instruction.py`.
 
 ## LLM Setup
 
-You need to download a large language model (LLM) from the following links:
+Download LLMs from the following links:
 
 - [Qwen2-VL-7B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct)
 - [Meta-Llama-3-8B-Instruct](https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct)
@@ -48,7 +48,6 @@ python prediction.py
 
 This will start the inference process using the provided model and dataset in zero-shot setting.
 
-
 ## Intruction-tuning
 
-Please refer to the official document from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/.)
+Please refer to the official document from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/.) with provided instruction set. Hyper-parameters are provided in paper.
