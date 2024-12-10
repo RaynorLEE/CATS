@@ -6,6 +6,8 @@ from collections import defaultdict, deque
 from sentence_transformers import SentenceTransformer
 from prompt_templates import TYPE_REASON_PROMPT, SUBGRAPH_REASON_PROMPT, NEIGHBOR_REASON_PROMPT, CLOSE_PATH_REASON_PROMPT, BASE_REASON_PROMPT, ALL_REASON_PROMPT
 
+LLM_PATH = ""
+
 class DataManager:
     def __init__(self, dataset="FB15k-237-subset", setting="inductive", train_size="full", model_name="Qwen2-7B-Instruct", llm_type="sft"):
         self.dataset = dataset
@@ -13,7 +15,7 @@ class DataManager:
         self.dataset_name = dataset.split("-")[0]
         self.dataset_path = f"datasets/{dataset}" + ("-inductive" if setting=="inductive" else "")
         self.train_size = train_size
-        self.model_path = f"/home/yangcehao/{self.model_name}-{self.dataset_name}-{train_size}" if llm_type == "sft" else f"/home/yangcehao/{self.model_name}"
+        self.model_path = f"{LLM_PATH}/{self.model_name}-{self.dataset_name}-{train_size}" if llm_type == "sft" else f"{LLM_PATH}/{self.model_name}"
         
         self.test_batch_size = 50                                    # 测试集中每50个sample为一个batch，并计算MRR和Hits@1
         self.max_type_triples = 5                                    # Type Reasoning阶段最多使用5个fewshot triples
@@ -37,7 +39,7 @@ class DataManager:
         self.close_path_dict = self._load_close_path_dict(self.close_path_file)
         
         self.embedding_model = SentenceTransformer(
-            model_name_or_path='/home/yangcehao/bge-small-en-v1.5',
+            model_name_or_path='BAAI/bge-small-en-v1.5',
             device="cuda"
         )
 
