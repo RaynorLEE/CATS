@@ -100,24 +100,24 @@ def build_instructions(dataset, train_size, subgraph_type, neg_num, version):
     with open(sft_instructions_path, "w", encoding="utf-8") as f:
         json.dump(sft_instructions, f, ensure_ascii=False, indent=4)
         
-def build_none_instructions(dataset, train_size, neg_num, version):
+def build_vanilla_instructions(dataset, train_size, neg_num, version):
     setting = "transductive" # 指令构建默认是transductive，用训练集
     
     data_manager = DataManager(dataset=dataset, setting=setting, train_size=train_size)
 
-    paths_dir = f"none_instructions{version}/{dataset}"
+    paths_dir = f"vanilla_instructions{version}/{dataset}"
     os.makedirs(paths_dir, exist_ok=True)
 
     sft_instructions = []
     
     for pos_triple in tqdm(data_manager.path_set, desc=f"Processing {dataset} - setting: {setting} - Train_size: {train_size}"):
-        pos_none_prompt = data_manager.build_none_prompt(pos_triple)
-        sft_instructions.append({"instruction": pos_none_prompt, "input": "", "output": "Y"})
+        pos_vanilla_prompt = data_manager.build_vanilla_prompt(pos_triple)
+        sft_instructions.append({"instruction": pos_vanilla_prompt, "input": "", "output": "Y"})
         neg_samples = data_manager.neg_sampling(pos_triple, neg_num)
         
         for neg_triple in neg_samples:
-            neg_none_prompt = data_manager.build_none_prompt(neg_triple)
-            sft_instructions.append({"instruction": neg_none_prompt, "input": "", "output": "N"})
+            neg_vanilla_prompt = data_manager.build_vanilla_prompt(neg_triple)
+            sft_instructions.append({"instruction": neg_vanilla_prompt, "input": "", "output": "N"})
             
     sft_instructions_path = f"{paths_dir}/{dataset}_train_size_{train_size}.json"
     with open(sft_instructions_path, "w", encoding="utf-8") as f:
@@ -128,15 +128,15 @@ def main():
     parser.add_argument("--dataset", type=str, choices=["FB15k-237-subset", "NELL-995-subset", "WN18RR-subset"], default="FB15k-237-subset")
     parser.add_argument("--train_size", type=str, choices=["full", "1000", "2000"], default="full", help="Size of the training data")
     parser.add_argument("--neg_num", type=int, default=3, help="Number of negative samples")
-    parser.add_argument("--prompt_type", type=str, default="CATS", choices=["CATS", "none"])
+    parser.add_argument("--prompt_type", type=str, default="CATS", choices=["CATS", "vanilla"])
     parser.add_argument("--subgraph_type", type=str, default="combine", choices=["neighbor-only", "path-only", "combine"])
     parser.add_argument("--version", type=str, default="")
 
     args = parser.parse_args()
     if args.prompt_type == "CATS":
         build_instructions(args.dataset, args.train_size, args.subgraph_type, args.neg_num, args.version)
-    elif args.prompt_type == "none":
-        build_none_instructions(args.dataset, args.train_size, args.neg_num, args.version)
+    elif args.prompt_type == "vanilla":
+        build_vanilla_instructions(args.dataset, args.train_size, args.neg_num, args.version)
 
 if __name__ == "__main__":
     main()

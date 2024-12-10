@@ -172,7 +172,7 @@ class DataManager:
         )
         return CLOSE_PATH_REASON_PROMPT.format(reasoning_paths=reasoning_paths, test_triple=self.triple_to_sentence(triple))
     
-    def build_none_prompt(self, triple):
+    def build_vanilla_prompt(self, triple):
         return BASE_REASON_PROMPT.format(test_triple=self.triple_to_sentence(triple))
     
     def build_all_prompt(self, triple):

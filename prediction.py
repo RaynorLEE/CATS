@@ -40,7 +40,7 @@ def main():
     parser.add_argument("--train_size", type=str, choices=["full", "1000", "2000"], default="full", help="Size of the training data")
     parser.add_argument("--model_name", type=str, choices=["Qwen2-7B-Instruct", "Meta-Llama-3-8B-Instruct", "Qwen2-1.5B-Instruct"], default="Qwen2-7B-Instruct")
     parser.add_argument("--llm_type", type=str, choices=["sft", "base"], default="sft")
-    parser.add_argument("--prompt_type", type=str, choices=["CATS", "none", "CATS-all"], default="CATS")
+    parser.add_argument("--prompt_type", type=str, choices=["CATS", "vanilla", "CATS-all"], default="CATS")
     parser.add_argument("--subgraph_type", type=str, choices=["neighbor-only", "path-only", "combine"], default="combine")
     parser.add_argument("--path_type", type=str, choices=["degree", "no-degree"], default="degree")
 
@@ -75,37 +75,37 @@ def main():
         log.write(f"{label} MRR: {mrr}\n")
 
     with open(log_file, 'w') as log:
-        if args.prompt_type == "none":
-            hits_result_none = []
+        if args.prompt_type == "vanilla":
+            hits_result_vanilla = []
             log.write(f"Using model: {data_manager.model_path}\n")
             
             for idx, batch in enumerate(tqdm(test_batches, desc="Processing test batches")):
-                none_prompts = [data_manager.build_none_prompt(test_triple) for test_triple in batch]
-                none_probs = []
-                for i in range(0, len(none_prompts), llm_batch_size):
-                    batch_prompts = none_prompts[i:i + llm_batch_size]
-                    none_probs.extend(cal_Y_prob(model, tokenizer, generation_config, batch_prompts))
-                for i, (prompt, prob) in enumerate(zip(none_prompts, none_probs)):
-                    log.write(f"Sample {sample_counter} none Prompt: {prompt}\n")
-                    log.write(f"Sample {sample_counter} none 'Y' token Probability: {prob}\n")
+                vanilla_prompts = [data_manager.build_vanilla_prompt(test_triple) for test_triple in batch]
+                vanilla_probs = []
+                for i in range(0, len(vanilla_prompts), llm_batch_size):
+                    batch_prompts = vanilla_prompts[i:i + llm_batch_size]
+                    vanilla_probs.extend(cal_Y_prob(model, tokenizer, generation_config, batch_prompts))
+                for i, (prompt, prob) in enumerate(zip(vanilla_prompts, vanilla_probs)):
+                    log.write(f"Sample {sample_counter} vanilla Prompt: {prompt}\n")
+                    log.write(f"Sample {sample_counter} vanilla 'Y' token Probability: {prob}\n")
                     log.write("*"*50 + "\n")
                     sample_counter += 1
-                none_prob_in_batch = list(zip(none_probs, range(len(none_probs))))
-                sorted_none_indices = sorted(range(len(none_prob_in_batch)), key=lambda i: none_prob_in_batch[i][0], reverse=True)
-                log.write(f"Sorted none indices: {sorted_none_indices}\n")
-                hits_position_base = sorted_none_indices.index(0) + 1 if 0 in sorted_none_indices else 0
-                hits_result_none.append(hits_position_base)
+                vanilla_prob_in_batch = list(zip(vanilla_probs, range(len(vanilla_probs))))
+                sorted_vanilla_indices = sorted(range(len(vanilla_prob_in_batch)), key=lambda i: vanilla_prob_in_batch[i][0], reverse=True)
+                log.write(f"Sorted vanilla indices: {sorted_vanilla_indices}\n")
+                hits_position_base = sorted_vanilla_indices.index(0) + 1 if 0 in sorted_vanilla_indices else 0
+                hits_result_vanilla.append(hits_position_base)
                 log.write("*"*50 + "\n")
                 log.flush()
                 
                 if (idx + 1) % 100 == 0:
                     log.write(f"\nMetrics after processing {idx + 1} batches:\n")
-                    log_results("None", hits_result_none)
+                    log_results("Vanilla", hits_result_vanilla)
                     log.write("\n" + "="*50 + "\n")
                     log.flush()
                     
             log.write("Final Results:\n")
-            log_results("None", hits_result_none)
+            log_results("Vanilla", hits_result_vanilla)
             log.flush()
         
         elif args.prompt_type == "CATS-all":
