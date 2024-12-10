@@ -39,7 +39,7 @@ def main():
     parser.add_argument("--setting", type=str, choices=["inductive", "transductive"], default="inductive", help="Inductive or Transductive setting")
     parser.add_argument("--train_size", type=str, choices=["full", "1000", "2000"], default="full", help="Size of the training data")
     parser.add_argument("--model_name", type=str, choices=["Qwen2-7B-Instruct", "Meta-Llama-3-8B-Instruct", "Qwen2-1.5B-Instruct"], default="Qwen2-7B-Instruct")
-    parser.add_argument("--llm_type", type=str, choices=["sft", "base"], default="sft")
+    parser.add_argument("--llm_type", type=str, choices=["sft", "base"], default="base")
     parser.add_argument("--prompt_type", type=str, choices=["CATS", "vanilla", "CATS-all"], default="CATS")
     parser.add_argument("--subgraph_type", type=str, choices=["neighbor-only", "path-only", "combine"], default="combine")
     parser.add_argument("--path_type", type=str, choices=["degree", "no-degree"], default="degree")
