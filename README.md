@@ -33,7 +33,7 @@ Alternatively, you can manually build the instruction set by executing `python b
 
 Download LLMs from the following links:
 
-- [Qwen2-7B-Instruct]([https://huggingface.co/Qwen/Qwen2-7B-Instruct])
+- [Qwen2-7B-Instruct](https://huggingface.co/Qwen/Qwen2-7B-Instruct)
 - [Meta-Llama-3-8B-Instruct](https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct)
 
 After downloading, update the `LLM_PATH` in the `data_manager.py` script to point to your local model path.
