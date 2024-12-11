@@ -1,6 +1,6 @@
 # CATS: Context-aware Inductive Knowledge Graph Completion with Latent Type Constraints and Subgraph Reasoning
 
-This repository provides the official implementation of the paper *"Context-aware Inductive Knowledge Graph Completion with Latent Type Constraints and Subgraph Reasoning"* (AAAI 2025).
+This repository provides the official implementation of the paper *"Context-aware Inductive Knowledge Graph Completion with Latent Type Constraints and Subgraph Reasoning"* (To appear in AAAI2025).
 
 ![CATS](CATS.png)
 
@@ -14,7 +14,7 @@ To run the code, follow these steps:
    ```bash
    pip install -r requirements.txt
    ```
-
+   
    Additionally, install `sentence_transformers`:
 
    ```bash
@@ -27,7 +27,7 @@ Download the full dataset and pre-built instructions from the following link:
 
 - [Dataset &amp; Instructions](https://drive.google.com/drive/folders/17C3BsllCWy_TK3B5WwCjxPQo2heuLJPz?usp=drive_link)
 
-Alternatively, you can manually build the instruction set executing  `python build_instruction.py`.
+Alternatively, you can manually build the instruction set by executing `python build_instruction.py`.
 
 ## LLM Setup
 
