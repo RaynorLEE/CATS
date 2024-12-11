@@ -42,7 +42,7 @@ Please refer to the official document of [LLaMA-Factory](https://github.com/hiyo
 
 ## Inference
 
-The following command evaluates the model performance. 
+The following command evaluates the model performance. You may alter the parameters below to test the model in different (transductive, inductive, and few-shot) scenarios.
 
 ```bash
 python3 prediction.py --dataset FB15k-237-subset --setting inductive --training_size full --model_name {model_path_after_sft} --prompt_type CATS --subgraph_type together --path_type degree
