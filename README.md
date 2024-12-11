@@ -40,6 +40,10 @@ Our experimental results can be reproduced with the Qwen2-7B-Instruct LLM.
 
 Please update the default value of `LLM_PATH` in script `data_manager.py` with your local model path.
 
+## Intruction-tuning
+
+Please refer to the official document from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/.) with the provided prompts. Hyper-parameters are provided in our paper. 
+
 ## Inference
 
 To run inference, execute the following command:
@@ -48,8 +52,3 @@ To run inference, execute the following command:
 python prediction.py
 ```
 
-This will start the inference process using the provided model and dataset in zero-shot setting.
-
-## Intruction-tuning
-
-Please refer to the official document from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/.) with the provided instruction set. Hyper-parameters are provided in our paper.
