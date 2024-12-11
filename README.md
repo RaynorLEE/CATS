@@ -10,7 +10,7 @@ Please follow these steps to execute our code:
 
 1. **Install dependencies:**
    Create a python environment and install the required packages. We suggest you use Python 3.10 with PyTorch 2.2.2.
-   For detailed Python package versions, you may refer to the suggested settings listed in `requirements.txt` from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/blob/main/requirements.txt).
+   For detailed Python package versions, you may refer to the suggested settings listed in `requirements.txt` from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/blob/main/requirements.txt). 
 
    ```bash
    pip install -r requirements.txt
@@ -42,13 +42,13 @@ Please update the default value of `LLM_PATH` in script `data_manager.py` with y
 
 ## Intruction-tuning
 
-Please refer to the official document from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/.) with the provided prompts. Hyper-parameters are provided in our paper. 
+Please refer to the official document of [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/) for supervised fine-tuning with the provided prompts. Hyper-parameters are provided in our paper. 
 
 ## Inference
 
-To run inference, execute the following command:
+To evaluate the model performance, execute the following command:
 
 ```bash
-python prediction.py
+python3 prediction.py --dataset FB15k-237-subset --setting inductive --training_size full --model_name {model_path_after_sft} --prompt_type CATS --subgraph_type together --path_type degree
 ```
 
