@@ -25,6 +25,7 @@ pip install sentence_transformers
 - [Dataset &amp; Instructions](https://drive.google.com/drive/folders/17C3BsllCWy_TK3B5WwCjxPQo2heuLJPz?usp=drive_link)
 
 2. Copy the two subfolders "datasets" and "instructions" into the project directory.
+3. 
 Alternatively, you can construct the LLM instruction prompts by executing `python build_instruction.py`.
 
 ## LLM Setup
