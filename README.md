@@ -9,7 +9,8 @@ This repository provides the official implementation of the paper *"Context-awar
 Please follow these steps to execute our code:
 
 1. **Install dependencies:**
-   Create a python environment and install the required packages. You can refer to the `requirements.txt` from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/blob/main/requirements.txt).
+   Create a python environment and install the required packages. We suggest you use Python 3.10 with PyTorch 2.2.2.
+   For detailed Python package versions, you may refer to the suggested settings listed in `requirements.txt` from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/blob/main/requirements.txt).
 
    ```bash
    pip install -r requirements.txt
@@ -23,20 +24,21 @@ Please follow these steps to execute our code:
 
 ## Dataset
 
-Download the full dataset and pre-built instructions from the following link:
+Download the full dataset and LLM instructions from the following link:
 
 - [Dataset &amp; Instructions](https://drive.google.com/drive/folders/17C3BsllCWy_TK3B5WwCjxPQo2heuLJPz?usp=drive_link)
 
-Alternatively, you can manually build the instruction set by executing `python build_instruction.py`.
+Alternatively, you can construct the LLM instruction prompts by executing `python build_instruction.py`.
 
 ## LLM Setup
 
-Download LLMs from the following links:
+You may download LLM checkpoints from the following links:
+Our experimental results can be reproduced with the Qwen2-7B-Instruct LLM. 
 
 - [Qwen2-7B-Instruct](https://huggingface.co/Qwen/Qwen2-7B-Instruct)
 - [Meta-Llama-3-8B-Instruct](https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct)
 
-After downloading, update the `LLM_PATH` in the `data_manager.py` script to point to your local model path.
+Please update the default value of `LLM_PATH` in script `data_manager.py` with your local model path.
 
 ## Inference
 
