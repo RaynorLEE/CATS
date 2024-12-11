@@ -52,3 +52,17 @@ The following command evaluates the model performance.
 python3 prediction.py --dataset FB15k-237-subset --setting inductive --training_size full --model_name {model_path_after_sft} --prompt_type CATS --subgraph_type together --path_type degree
 ```
 
+## Citation
+
+If you find this code useful, please consider citing the following paper.
+```
+@misc{li2024contextawareinductiveknowledgegraph,
+      title={Context-aware Inductive Knowledge Graph Completion with Latent Type Constraints and Subgraph Reasoning}, 
+      author={Muzhi Li and Cehao Yang and Chengjin Xu and Zixing Song and Xuhui Jiang and Jian Guo and Ho-fung Leung and Irwin King},
+      year={2024},
+      eprint={2410.16803},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2410.16803}, 
+}
+```
