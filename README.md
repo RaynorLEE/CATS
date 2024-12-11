@@ -6,7 +6,7 @@ This repository provides the official implementation of the paper *"Context-awar
 
 ## Environment Setup
 
-To run the code, follow these steps:
+Please follow these steps to execute our code:
 
 1. **Install dependencies:**
    Create a python environment and install the required packages. You can refer to the `requirements.txt` from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/blob/main/requirements.txt).
