@@ -42,7 +42,7 @@ Please update the default value of `LLM_PATH` in script `data_manager.py` with y
 
 ## Intruction-tuning
 
-Please refer to the official document of [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/) for LLM supervised fine-tuning with the provided prompts. Hyper-parameters are provided in our paper. 
+Please refer to the official document of [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/) to conduct LLM supervised fine-tuning with the provided prompts. Hyper-parameters are provided in our paper. 
 
 ## Inference
 
