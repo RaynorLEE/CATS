@@ -42,11 +42,11 @@ Please update the default value of `LLM_PATH` in script `data_manager.py` with y
 
 ## Intruction-tuning
 
-Please refer to the official document of [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/) for supervised fine-tuning with the provided prompts. Hyper-parameters are provided in our paper. 
+Please refer to the official document of [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/) for LLM supervised fine-tuning with the provided prompts. Hyper-parameters are provided in our paper. 
 
 ## Inference
 
-To evaluate the model performance, execute the following command:
+The following command evaluates the model performance. 
 
 ```bash
 python3 prediction.py --dataset FB15k-237-subset --setting inductive --training_size full --model_name {model_path_after_sft} --prompt_type CATS --subgraph_type together --path_type degree
