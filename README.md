@@ -4,23 +4,19 @@ This repository provides the official implementation of the paper *"Context-awar
 
 ![CATS](CATS.png)
 
-## Environment Setup
+## Experiment Environment Setup
+Create a python environment and install the required packages. We suggest you use Python 3.10 with PyTorch 2.2.2.
+For detailed Python package versions, you may refer to the suggested settings listed in `requirements.txt` from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/blob/main/requirements.txt). (VLLM is not required) 
 
-Please follow these steps to execute our code:
-
-1. **Install dependencies:**
-   Create a python environment and install the required packages. We suggest you use Python 3.10 with PyTorch 2.2.2.
-   For detailed Python package versions, you may refer to the suggested settings listed in `requirements.txt` from [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/blob/main/requirements.txt). 
-
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+pip install -r requirements.txt
+```
    
-   Additionally, install `sentence_transformers`:
+Additionally, install `sentence_transformers`:
 
-   ```bash
-   pip install sentence_transformers
-   ```
+```bash
+pip install sentence_transformers
+```
 
 ## Dataset
 
@@ -42,7 +38,7 @@ Please update the default value of `LLM_PATH` in script `data_manager.py` with y
 
 ## Intruction-tuning
 
-Please refer to the official document of [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/) to conduct LLM supervised fine-tuning with the provided prompts. Hyper-parameters are provided in our paper. 
+Please refer to the official document of [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/) to conduct LLM supervised fine-tuning with the provided prompts. You may need to specify the prompt path and other training settings in a configuration file. Detailed hyper-parameters are provided in our paper. 
 
 ## Inference
 
