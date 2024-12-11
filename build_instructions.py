@@ -6,7 +6,7 @@ from tqdm import tqdm
 import argparse
 from prompt_templates import SUBGRAPH_REASON_PROMPT, NEIGHBOR_REASON_PROMPT, CLOSE_PATH_REASON_PROMPT
 
-# 用一个relation_degree计算所有close_paths的degree和，然后排序，取最小的几个，这样能排除"gender","ethnicity"等高频relation
+
 def close_path_finder(data_manager:DataManager, triple):
     head, relation, tail = triple
     close_paths = list(data_manager.bfs_paths(head, tail))
@@ -25,7 +25,7 @@ def close_path_finder(data_manager:DataManager, triple):
     return []
 
 def build_instructions(dataset, train_size, subgraph_type, neg_num, version):
-    setting = "transductive" # 指令构建默认是transductive，用训练集
+    setting = "transductive" 
     
     data_manager = DataManager(dataset=dataset, setting=setting, train_size=train_size)
 
@@ -37,7 +37,6 @@ def build_instructions(dataset, train_size, subgraph_type, neg_num, version):
     for pos_triple in tqdm(data_manager.path_set, desc=f"Processing {dataset} - setting: {setting} - Train_size: {train_size}"):
         pos_head, relation, pos_tail = pos_triple
         
-        # 移除当前triple，因为是寻找当前(pos_head, pos_tail)的close_path
         removed_from_head = (relation, pos_tail, 1)
         removed_from_tail = (relation, pos_head, -1)
         data_manager.entity2relationtail_dict[pos_head].remove(removed_from_head)
