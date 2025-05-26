@@ -1,6 +1,6 @@
 # [AAAI2025] CATS: Context-aware Inductive Knowledge Graph Completion with Latent Type Constraints and Subgraph Reasoning
 
-This repository provides the official implementation of the paper *"Context-aware Inductive Knowledge Graph Completion with Latent Type Constraints and Subgraph Reasoning"* (To appear in AAAI2025).
+This repository provides the official implementation of the paper *"Context-aware Inductive Knowledge Graph Completion with Latent Type Constraints and Subgraph Reasoning"*.
 
 ![CATS](CATS.png)
 
@@ -54,13 +54,15 @@ python3 prediction.py --dataset FB15k-237-subset --setting inductive --training_
 
 If you find this code useful, please consider citing the following paper.
 ```
-@misc{li2024contextawareinductiveknowledgegraph,
-      title={Context-aware Inductive Knowledge Graph Completion with Latent Type Constraints and Subgraph Reasoning}, 
-      author={Muzhi Li and Cehao Yang and Chengjin Xu and Zixing Song and Xuhui Jiang and Jian Guo and Ho-fung Leung and Irwin King},
-      year={2024},
-      eprint={2410.16803},
-      archivePrefix={arXiv},
-      primaryClass={cs.AI},
-      url={https://arxiv.org/abs/2410.16803}, 
+@article{Li_Yang_Xu_Song_Jiang_Guo_Leung_King_2025,
+title={Context-aware Inductive Knowledge Graph Completion with Latent Type Constraints and Subgraph Reasoning},
+volume={39},
+url={https://ojs.aaai.org/index.php/AAAI/article/view/33318}, DOI={10.1609/aaai.v39i11.33318},
+number={11},
+journal={Proceedings of the AAAI Conference on Artificial Intelligence},
+author={Li, Muzhi and Yang, Cehao and Xu, Chengjin and Song, Zixing and Jiang, Xuhui and Guo, Jian and Leung, Ho-fung and King, Irwin},
+year={2025},
+month={Apr.},
+pages={12102-12111} 
 }
 ```
