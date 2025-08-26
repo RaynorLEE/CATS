@@ -38,7 +38,7 @@ Our experimental results can be reproduced with the Qwen2-7B-Instruct LLM.
 
 Please update the default value of `LLM_PATH` in script `data_manager.py` with your local model path.
 
-## Intruction-tuning
+## Instruction-tuning
 
 Please refer to the official document of [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory/) to conduct LLM supervised fine-tuning with the provided prompts. You may need to specify the prompt path and other training settings in a configuration file. Detailed hyper-parameters are provided in our paper. 
 
